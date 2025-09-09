@@ -320,11 +320,15 @@ def api_classify():
             class_label, class_index, confidence = classifier.predict(filepath)
             
             user_scan_saved = False
+            scan_id = None
+            # Create a URL for the newly saved image, which can be used by the frontend
+            image_url = url_for('static', filename=os.path.join('uploads', unique_filename))
+
             # Save scan to database if user is logged in
             if 'user_id' in session:
                 scan = Scan(
                     user_id=session['user_id'],
-                    image_path=os.path.join('uploads', unique_filename), # Save relative path
+                    image_path=unique_filename, # Save only the filename
                     classification=class_label,
                     confidence=float(confidence) # Ensure confidence is float
                 )
@@ -332,12 +336,14 @@ def api_classify():
                 db.session.add(scan)
                 db.session.commit()
                 user_scan_saved = True
-                
+                scan_id = scan.id
+
             return jsonify({
                 'success': True,
                 'classification': class_label,
                 'confidence': confidence,
-                'user_scan_saved': user_scan_saved  # This key is crucial for the frontend
+                'user_scan_saved': user_scan_saved,
+                'image_url': image_url # Pass the correct image URL to the frontend
             })
             
     except Exception as e:

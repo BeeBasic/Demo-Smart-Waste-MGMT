@@ -55,6 +55,7 @@
         font-weight: 600;
       }
       .stat-card {
+        position: relative;
         flex: 1;
         min-width: 200px;
         padding: 20px;
@@ -67,6 +68,22 @@
         font-size: 2.2rem;
         color: #28a745;
         margin-bottom: 10px;
+      }
+      .info-icon {
+        position: absolute;
+        top: 10px;
+        right: 10px;
+        cursor: pointer;
+        font-size: 1.2rem;
+        color: #6c757d;
+      }
+      .tooltip-inner {
+        background-color: #28a745;
+        color: #fff;
+      }
+      .tooltip.bs-tooltip-auto[data-popper-placement^="bottom"] .tooltip-arrow::before,
+      .tooltip.bs-tooltip-bottom .tooltip-arrow::before {
+        border-bottom-color: #28a745;
       }
       .upload-area {
         padding: 30px;
@@ -206,6 +223,7 @@
           <div class="stat-card">
             <h3 id="recycled-items-count">{{ scans|selectattr('classification', 'equalto', 'recyclable')|list|length }}</h3>
             <p>Items Recycled</p>
+            <span class="info-icon" data-bs-toggle="tooltip" data-bs-placement="bottom" title="This count increases each time you scan a 'recyclable' item.">i</span>
           </div>
           {% else %}
           <div class="stat-card">
@@ -215,6 +233,7 @@
           <div class="stat-card">
             <h3 id="recycled-items-count">0</h3>
             <p>Items Recycled</p>
+            <span class="info-icon" data-bs-toggle="tooltip" data-bs-placement="bottom" title="This count increases each time you scan a 'recyclable' item.">i</span>
           </div>
           {% endif %}
         </div>
@@ -315,7 +334,7 @@
               "
             >
               <img
-                src="{{ url_for('static', filename=scan.image_path) }}"
+                src="{{ url_for('static', filename='uploads/' + scan.image_path) }}"
                 alt="Waste scan"
                 style="
                   width: 100%;
@@ -359,6 +378,12 @@
 
     <script>
       document.addEventListener("DOMContentLoaded", function () {
+        // --- Initialize Bootstrap Tooltips ---
+        var tooltipTriggerList = [].slice.call(document.querySelectorAll('[data-bs-toggle="tooltip"]'));
+        var tooltipList = tooltipTriggerList.map(function (tooltipTriggerEl) {
+            return new bootstrap.Tooltip(tooltipTriggerEl);
+        });
+
         // --- Existing File Upload & Preview Logic ---
         const uploadArea = document.getElementById("upload-area");
         const fileInput = document.getElementById("file-input");
@@ -437,10 +462,10 @@
                         ? `<p class="text-muted">Your scan has been recorded in your history.</p>`
                         : `<p class="text-muted">Log in to save your scans and track your impact!</p>`;
 
-                    // Display the result
+                    // Display the result using the URL from the server for consistency
                     resultOutput.innerHTML = `
                         <div class="d-flex align-items-start">
-                            <img src="${imagePreview.src}" alt="Classified image" style="width: 150px; height: 150px; object-fit: cover; border-radius: 8px; margin-right: 20px;">
+                            <img src="${data.image_url}" alt="Classified image" style="width: 150px; height: 150px; object-fit: cover; border-radius: 8px; margin-right: 20px;">
                             <div>
                                 <h5 style="color: #2e7d32; text-transform: capitalize;">${data.classification}</h5>
                                 <p>Confidence: <strong>${(data.confidence * 100).toFixed(2)}%</strong></p>
@@ -451,7 +476,8 @@
 
                     // --- Live Update Stats & History (ONLY if scan was saved for a user) ---
                     if (data.user_scan_saved) {
-                        updateDashboardStats(data.classification, imagePreview.src, data.confidence);
+                        // Use the image_url from the API response for the new history item
+                        updateDashboardStats(data.classification, data.image_url, data.confidence);
                     }
 
                 } else {
@@ -560,7 +586,7 @@
                 .catch((error) => {
                   console.error("Error fetching recycling centers:", error);
                   document.querySelector(".centers-container").innerHTML =
-                    "<p>Error loading recycling centers. Please try again later.</p>
+                    "<p>Error loading recycling centers. Please try again later.</p>";
                 });
             },
             function (error) {
