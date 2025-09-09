@@ -61,22 +61,18 @@
       margin-bottom: 15px;
     }
 
-    .success-message {
-      color: #155724;
-      background: #d4edda;
-      padding: 10px;
-      border-radius: 5px;
-      margin-bottom: 15px;
+    .alert-danger {
+        list-style: none;
+        padding: 0;
+        margin: 0;
     }
 
-    .form-control {
-      border-radius: 6px;
-      border: 1px solid #ced4da;
+    .form-control.is-invalid {
+        border-color: #dc3545;
     }
 
-    .form-control:focus {
-      border-color: #28a745;
-      box-shadow: 0 0 0 0.2rem rgba(40, 167, 69, 0.25);
+    .invalid-feedback {
+        display: block;
     }
 
     .btn-primary {
@@ -155,26 +151,55 @@
           {% endfor %}
         {% endif %}
       {% endwith %}
-      <form method="POST" id="register-form">
-        {{ form.csrf_token if form else "" }}
+      <form method="POST" action="">
+        {{ form.hidden_tag() }}
         <div class="mb-3">
-          <label for="username" class="form-label">Username</label>
-          <input type="text" class="form-control" id="username" name="username" required />
+            {{ form.username.label(class="form-label") }}
+            {{ form.username(class="form-control" + (" is-invalid" if form.username.errors else "")) }}
+            {% if form.username.errors %}
+                <div class="invalid-feedback">
+                    {% for error in form.username.errors %}
+                        <span>{{ error }}</span>
+                    {% endfor %}
+                </div>
+            {% endif %}
         </div>
         <div class="mb-3">
-          <label for="email" class="form-label">Email</label>
-          <input type="email" class="form-control" id="email" name="email" required />
+            {{ form.email.label(class="form-label") }}
+            {{ form.email(class="form-control" + (" is-invalid" if form.email.errors else "")) }}
+            {% if form.email.errors %}
+                <div class="invalid-feedback">
+                    {% for error in form.email.errors %}
+                        <span>{{ error }}</span>
+                    {% endfor %}
+                </div>
+            {% endif %}
         </div>
         <div class="mb-3">
-          <label for="password" class="form-label">Password</label>
-          <input type="password" class="form-control" id="password" name="password" required />
+            {{ form.password.label(class="form-label") }}
+            {{ form.password(class="form-control" + (" is-invalid" if form.password.errors else "")) }}
+            {% if form.password.errors %}
+                <div class="invalid-feedback">
+                    {% for error in form.password.errors %}
+                        <span>{{ error }}</span>
+                    {% endfor %}
+                </div>
+            {% endif %}
         </div>
         <div class="mb-3">
-          <label for="confirm-password" class="form-label">Confirm Password</label>
-          <input type="password" class="form-control" id="confirm-password" name="confirm_password" required />
-
+            {{ form.confirm_password.label(class="form-label") }}
+            {{ form.confirm_password(class="form-control" + (" is-invalid" if form.confirm_password.errors else "")) }}
+            {% if form.confirm_password.errors %}
+                <div class="invalid-feedback">
+                    {% for error in form.confirm_password.errors %}
+                        <span>{{ error }}</span>
+                    {% endfor %}
+                </div>
+            {% endif %}
         </div>
-        <button type="submit" class="btn btn-primary">Register</button>
+        <div class="mb-3">
+            {{ form.submit(class="btn btn-primary") }}
+        </div>
       </form>
       <p class="link">Already have an account? <a href="{{ url_for('login') }}">Login here</a></p>
     </div>
@@ -182,39 +207,5 @@
 
   <!-- Bootstrap JS -->
   <script src="https://cdnjs.cloudflare.com/ajax/libs/bootstrap/5.3.0/js/bootstrap.bundle.min.js"></script>
-  <!-- Internal JS -->
-<script>
-document.getElementById('register-form').addEventListener('submit', function(e) {
-    // Clear previous messages
-    const msgDivs = document.querySelectorAll('.error-message');
-    msgDivs.forEach(div => div.remove());
-
-    const username = document.getElementById('username').value.trim();
-    const email = document.getElementById('email').value.trim();
-    const password = document.getElementById('password').value;
-    const confirmPassword = document.getElementById('confirm-password').value;
-
-    let errors = [];
-
-    if (!username) errors.push('Username is required.');
-    if (!email) errors.push('Email is required.');
-    if (!password) errors.push('Password is required.');
-    if (!confirmPassword) errors.push('Confirm Password is required.');
-    if (password && password.length < 6) errors.push('Password must be at least 6 characters long.');
-    if (password !== confirmPassword) errors.push('Passwords do not match.');
-
-    if (errors.length > 0) {
-        e.preventDefault();  // Stop form submission
-
-        const formCard = document.querySelector('.card');
-        errors.forEach(err => {
-            const div = document.createElement('div');
-            div.classList.add('error-message');
-            div.innerText = err;
-            formCard.insertBefore(div, formCard.firstChild);
-        });
-    }
-});
-</script>
 </body>
 </html>

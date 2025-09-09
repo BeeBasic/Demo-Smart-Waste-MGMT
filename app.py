@@ -1,3 +1,4 @@
+
 import os
 from flask import Flask, render_template, request, jsonify, session, redirect, url_for, flash
 from werkzeug.utils import secure_filename
@@ -10,6 +11,7 @@ from config import Config
 # Import database modules
 from database.db import init_db, db
 from database.models import User, Scan, RecyclingLocation, Product
+from forms import RegistrationForm
 
 from models.classifier import WasteClassifier
 
@@ -55,7 +57,8 @@ def index():
 def dashboard():
     """Render the dashboard page"""
     user = User.query.get(session['user_id'])
-    return render_template('dashboard.html', user=user)
+    scans = Scan.query.filter_by(user_id=session['user_id']).order_by(Scan.created_at.desc()).all()
+    return render_template('dashboard.html', user=user, scans=scans)
 
 @app.route('/marketplace')
 def marketplace():
@@ -70,7 +73,7 @@ def marketplace():
             'id': product.id,
             'title': product.title,
             'price': product.price,
-            'image': product.image_path,
+            'image_path': url_for('static', filename='uploads/' + os.path.basename(product.image_path)),
             'description': product.description,
             'waste_type': product.waste_type,
             'seller': User.query.get(product.user_id).username,
@@ -83,7 +86,7 @@ def marketplace():
             'id': 1001,
             'title': 'Recycled Plastic Bottle',
             'price': 0.50,
-            'image': 'marketplace/product1.jpg',
+            'image_path': 'https://via.placeholder.com/250x200.png?text=Recycled+Bottle',
             'description': 'A high-quality recycled plastic bottle.',
             'waste_type': 'recyclable',
             'seller': 'EcoLoop',
@@ -93,7 +96,7 @@ def marketplace():
             'id': 1002,
             'title': 'Compostable Bag',
             'price': 1.20,
-            'image': 'marketplace/product2.jpg',
+            'image_path': 'https://via.placeholder.com/250x200.png?text=Compostable+Bag',
             'description': 'Eco-friendly compostable bag made from sustainable materials.',
             'waste_type': 'compostable',
             'seller': 'EcoLoop',
@@ -142,30 +145,21 @@ def login():
 @app.route('/register', methods=['GET', 'POST'])
 def register():
     """Handle user registration"""
-    if request.method == 'POST':
+    form = RegistrationForm()
+    if form.validate_on_submit():
         # Get form data
-        username = request.form.get('username', '').strip()
-        email = request.form.get('email', '').strip()
-        password = request.form.get('password', '').strip()
-        confirm_password = request.form.get('confirm_password', '').strip()
+        username = form.username.data
+        email = form.email.data
+        password = form.password.data
         
-        # Validate form data
-        if not all([username, email, password, confirm_password]):
-            flash('Please fill in all fields.', 'error')
-            return render_template('register.html')
-        
-        if password != confirm_password:
-            flash('Passwords do not match.', 'error')
-            return render_template('register.html')
-            
         # Check if username or email already exists
         if User.query.filter_by(username=username).first():
             flash('Username already exists.', 'error')
-            return render_template('register.html')
+            return render_template('register.html', form=form)
             
         if User.query.filter_by(email=email).first():
             flash('Email already exists.', 'error')
-            return render_template('register.html')
+            return render_template('register.html', form=form)
             
         # Create new user
         new_user = User(
@@ -181,7 +175,7 @@ def register():
         flash('Registration successful! Please log in.', 'success')
         return redirect(url_for('login'))
         
-    return render_template('register.html')
+    return render_template('register.html', form=form)
 
 
 
@@ -221,7 +215,7 @@ def product_detail(product_id):
             'id': product.id,
             'title': product.title,
             'price': product.price,
-            'image': product.image_path,
+            'image_path': url_for('static', filename='uploads/' + os.path.basename(product.image_path)),
             'description': product.description,
             'waste_type': product.waste_type,
             'seller': User.query.get(product.user_id).username,
@@ -234,7 +228,7 @@ def product_detail(product_id):
                 'id': 1001,
                 'title': 'Recycled Plastic Bottle',
                 'price': 0.50,
-                'image': 'marketplace/product1.jpg',
+                'image_path': 'https://via.placeholder.com/250x200.png?text=Recycled+Bottle',
                 'description': 'A high-quality recycled plastic bottle.',
                 'waste_type': 'recyclable',
                 'seller': 'EcoSort',
@@ -244,7 +238,7 @@ def product_detail(product_id):
                 'id': 1002,
                 'title': 'Compostable Bag',
                 'price': 1.20,
-                'image': 'marketplace/product2.jpg',
+                'image_path': 'https://via.placeholder.com/250x200.png?text=Compostable+Bag',
                 'description': 'Eco-friendly compostable bag made from sustainable materials.',
                 'waste_type': 'compostable',
                 'seller': 'EcoSort',
@@ -254,7 +248,7 @@ def product_detail(product_id):
                 'id': 1003,
                 'title': 'Upcycled Furniture',
                 'price': 75.00,
-                'image': 'marketplace/product3.jpg',
+                'image_path': 'https://via.placeholder.com/250x200.png?text=Upcycled+Furniture',
                 'description': 'Beautifully upcycled furniture piece with a modern design.',
                 'waste_type': 'recyclable',
                 'seller': 'EcoSort',
@@ -286,7 +280,11 @@ def seller_dashboard():
 
 @app.route('/classification_dashboard', methods=['GET', 'POST'])
 def classification_dashboard():
-    """Render the classification dashboard page"""
+    """Render the classification dashboard and handle image uploads."""
+    scans = []
+    if 'user_id' in session:
+        scans = Scan.query.filter_by(user_id=session['user_id']).order_by(Scan.created_at.desc()).all()
+
     if request.method == 'POST':
         if 'image' not in request.files:
             flash('No image file provided', 'error')
@@ -320,7 +318,10 @@ def classification_dashboard():
                 db.session.add(scan)
                 db.session.commit()
                 
-                return render_template('classification_result.html', scan=scan)
+                # After saving, get the updated list of scans
+                scans = Scan.query.filter_by(user_id=session['user_id']).order_by(Scan.created_at.desc()).all()
+                
+                return render_template('classification_result.html', scan=scan, scans=scans)
             else:
                 # For non-logged in users, just show the result without saving
                 scan = Scan(
@@ -331,7 +332,7 @@ def classification_dashboard():
                 )
                 return render_template('classification_result.html', scan=scan)
     
-    return render_template('classification_dashboard.html')
+    return render_template('classification_dashboard.html', scans=scans)
 
 # =========================================================
 # API Routes (JSON Endpoints)
