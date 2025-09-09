@@ -322,7 +322,7 @@ def api_classify():
             user_scan_saved = False
             scan_id = None
             # Create a URL for the newly saved image, which can be used by the frontend
-            image_url = url_for('static', filename=os.path.join('uploads', unique_filename))
+            image_url = url_for('static', filename=os.path.join('uploads', unique_filename), _external=True)
 
             # Save scan to database if user is logged in
             if 'user_id' in session:
