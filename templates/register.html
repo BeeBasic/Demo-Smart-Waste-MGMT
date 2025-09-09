@@ -171,7 +171,8 @@
         </div>
         <div class="mb-3">
           <label for="confirm-password" class="form-label">Confirm Password</label>
-          <input type="password" class="form-control" id="confirm-password" name="confirm-password" required />
+          <input type="password" class="form-control" id="confirm-password" name="confirm_password" required />
+
         </div>
         <button type="submit" class="btn btn-primary">Register</button>
       </form>
@@ -182,24 +183,38 @@
   <!-- Bootstrap JS -->
   <script src="https://cdnjs.cloudflare.com/ajax/libs/bootstrap/5.3.0/js/bootstrap.bundle.min.js"></script>
   <!-- Internal JS -->
-  <script>
-    document.getElementById('register-form').addEventListener('submit', function(e) {
-      const username = document.getElementById('username').value.trim();
-      const email = document.getElementById('email').value.trim();
-      const password = document.getElementById('password').value;
-      const confirmPassword = document.getElementById('confirm-password').value;
+<script>
+document.getElementById('register-form').addEventListener('submit', function(e) {
+    // Clear previous messages
+    const msgDivs = document.querySelectorAll('.error-message');
+    msgDivs.forEach(div => div.remove());
 
-      if (!username || !email || !password || !confirmPassword) {
-        e.preventDefault();
-        alert('Please fill in all fields.');
-      } else if (password !== confirmPassword) {
-        e.preventDefault();
-        alert('Passwords do not match.');
-      } else if (password.length < 6) {
-        e.preventDefault();
-        alert('Password must be at least 6 characters long.');
-      }
-    });
-  </script>
+    const username = document.getElementById('username').value.trim();
+    const email = document.getElementById('email').value.trim();
+    const password = document.getElementById('password').value;
+    const confirmPassword = document.getElementById('confirm-password').value;
+
+    let errors = [];
+
+    if (!username) errors.push('Username is required.');
+    if (!email) errors.push('Email is required.');
+    if (!password) errors.push('Password is required.');
+    if (!confirmPassword) errors.push('Confirm Password is required.');
+    if (password && password.length < 6) errors.push('Password must be at least 6 characters long.');
+    if (password !== confirmPassword) errors.push('Passwords do not match.');
+
+    if (errors.length > 0) {
+        e.preventDefault();  // Stop form submission
+
+        const formCard = document.querySelector('.card');
+        errors.forEach(err => {
+            const div = document.createElement('div');
+            div.classList.add('error-message');
+            div.innerText = err;
+            formCard.insertBefore(div, formCard.firstChild);
+        });
+    }
+});
+</script>
 </body>
 </html>
