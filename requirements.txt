@@ -26,6 +26,6 @@ Flask-Bcrypt>=1.0
 
 # Optional / only if compatible
 # scikit-learn==1.3.0  # Use only if Python <=3.11
-tensorflow==2.15.0    # Tensorflow version for Python 3.11
+tensorflow==2.16.1    # Updated Tensorflow version
 # scipy                 # Uncomment if a compatible version exists
 # google-cloud-storage
