@@ -278,61 +278,15 @@ def seller_dashboard():
     user = User.query.get(session['user_id'])
     return render_template('seller_dashboard.html', user=user)
 
-@app.route('/classification_dashboard', methods=['GET', 'POST'])
+@app.route('/classification_dashboard')
 def classification_dashboard():
-    """Render the classification dashboard and handle image uploads."""
+    """Render the classification dashboard page with user's scan history."""
     scans = []
     if 'user_id' in session:
         scans = Scan.query.filter_by(user_id=session['user_id']).order_by(Scan.created_at.desc()).all()
-
-    if request.method == 'POST':
-        if 'image' not in request.files:
-            flash('No image file provided', 'error')
-            return redirect(request.url)
-            
-        file = request.files['image']
-        if file.filename == '':
-            flash('No selected file', 'error')
-            return redirect(request.url)
-            
-        if file:
-            filename = secure_filename(file.filename)
-            filepath = os.path.join(app.config['UPLOAD_FOLDER'], filename)
-            file.save(filepath)
-            
-            # Get classifier instance
-            classifier = get_classifier()
-            
-            # Process image for classification
-            class_label, class_index, confidence = classifier.predict(filepath)
-            
-            # Save scan to database if user is logged in
-            if 'user_id' in session:
-                scan = Scan(
-                    user_id=session['user_id'],
-                    image_path=filepath,
-                    classification=class_label,
-                    confidence=confidence
-                )
-                
-                db.session.add(scan)
-                db.session.commit()
-                
-                # After saving, get the updated list of scans
-                scans = Scan.query.filter_by(user_id=session['user_id']).order_by(Scan.created_at.desc()).all()
-                
-                return render_template('classification_result.html', scan=scan, scans=scans)
-            else:
-                # For non-logged in users, just show the result without saving
-                scan = Scan(
-                    image_path=filepath,
-                    classification=class_label,
-                    confidence=confidence,
-                    created_at=datetime.utcnow()
-                )
-                return render_template('classification_result.html', scan=scan)
     
     return render_template('classification_dashboard.html', scans=scans)
+
 
 # =========================================================
 # API Routes (JSON Endpoints)
@@ -340,18 +294,23 @@ def classification_dashboard():
 
 @app.route('/api/classify', methods=['POST'])
 def api_classify():
-    """API endpoint for classifying waste images"""
+    """
+    API endpoint for classifying waste images.
+    This function now returns whether the scan was saved for a logged-in user.
+    """
     try:
         if 'image' not in request.files:
-            return jsonify({'error': 'No image file provided'}), 400
+            return jsonify({'success': False, 'error': 'No image file provided'}), 400
             
         file = request.files['image']
         if file.filename == '':
-            return jsonify({'error': 'No selected file'}), 400
+            return jsonify({'success': False, 'error': 'No selected file'}), 400
             
         if file:
             filename = secure_filename(file.filename)
-            filepath = os.path.join(app.config['UPLOAD_FOLDER'], filename)
+            # Create a unique path for the image to avoid overwrites
+            unique_filename = f"{datetime.utcnow().strftime('%Y%m%d%H%M%S%f')}_{filename}"
+            filepath = os.path.join(app.config['UPLOAD_FOLDER'], unique_filename)
             file.save(filepath)
             
             # Get classifier instance
@@ -360,28 +319,30 @@ def api_classify():
             # Get prediction
             class_label, class_index, confidence = classifier.predict(filepath)
             
+            user_scan_saved = False
             # Save scan to database if user is logged in
             if 'user_id' in session:
                 scan = Scan(
                     user_id=session['user_id'],
-                    image_path=filepath,
+                    image_path=os.path.join('uploads', unique_filename), # Save relative path
                     classification=class_label,
-                    confidence=confidence
+                    confidence=float(confidence) # Ensure confidence is float
                 )
                 
                 db.session.add(scan)
                 db.session.commit()
+                user_scan_saved = True
                 
             return jsonify({
                 'success': True,
                 'classification': class_label,
                 'confidence': confidence,
-                'waste_type': class_label  # Add this for frontend compatibility
+                'user_scan_saved': user_scan_saved  # This key is crucial for the frontend
             })
             
     except Exception as e:
         print(f"Classification error: {str(e)}")
-        return jsonify({'error': 'An error occurred while classifying the image'}), 500
+        return jsonify({'success': False, 'error': 'An error occurred while classifying the image'}), 500
 
 
 

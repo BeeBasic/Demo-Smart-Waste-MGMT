@@ -432,6 +432,11 @@
             .then(response => response.json())
             .then(data => {
                 if (data.success) {
+                    // Prepare result message. If user is not logged in, show a different message.
+                    let resultMessage = data.user_scan_saved 
+                        ? `<p class="text-muted">Your scan has been recorded in your history.</p>`
+                        : `<p class="text-muted">Log in to save your scans and track your impact!</p>`;
+
                     // Display the result
                     resultOutput.innerHTML = `
                         <div class="d-flex align-items-start">
@@ -439,13 +444,15 @@
                             <div>
                                 <h5 style="color: #2e7d32; text-transform: capitalize;">${data.classification}</h5>
                                 <p>Confidence: <strong>${(data.confidence * 100).toFixed(2)}%</strong></p>
-                                <p class="text-muted">Your scan has been recorded in your history.</p>
+                                ${resultMessage}
                             </div>
                         </div>
                     `;
 
-                    // --- Live Update Stats & History ---
-                    updateDashboardStats(data.classification, imagePreview.src);
+                    // --- Live Update Stats & History (ONLY if scan was saved for a user) ---
+                    if (data.user_scan_saved) {
+                        updateDashboardStats(data.classification, imagePreview.src, data.confidence);
+                    }
 
                 } else {
                     resultOutput.innerHTML = `<p style="color: red;"><strong>Error:</strong> ${data.error || 'Unknown error occurred.'}</p>`;
@@ -457,7 +464,7 @@
             });
         });
 
-        function updateDashboardStats(classification, imageSrc) {
+        function updateDashboardStats(classification, imageSrc, confidence) {
             // 1. Update Total Scans count
             const totalScansEl = document.getElementById("total-scans-count");
             if (totalScansEl) {
@@ -482,6 +489,7 @@
 
                 const now = new Date();
                 const formattedDate = now.toLocaleString('en-US', { month: 'long', day: 'numeric', year: 'numeric' });
+                const formattedConfidence = (confidence * 100).toFixed(2) + '%';
 
                 newHistoryItem.innerHTML = `
                     <div style="width: 100px; height: 100px; margin-right: 20px; flex: 0 0 auto;">
@@ -489,7 +497,7 @@
                     </div>
                     <div>
                         <h5 style="color: #2e7d32" class="mb-1">${classification.charAt(0).toUpperCase() + classification.slice(1)}</h5>
-                        <p class="mb-1">Confidence: Just now</p>
+                        <p class="mb-1">Confidence: ${formattedConfidence}</p>
                         <p class="mb-0">${formattedDate}</p>
                     </div>
                 `;
@@ -552,7 +560,7 @@
                 .catch((error) => {
                   console.error("Error fetching recycling centers:", error);
                   document.querySelector(".centers-container").innerHTML =
-                    "<p>Error loading recycling centers. Please try again later.</p>";
+                    "<p>Error loading recycling centers. Please try again later.</p>
                 });
             },
             function (error) {
