@@ -260,7 +260,7 @@
                       <h3>Browse Marketplace</h3>
                       <p>Shop sustainable products</p>
                   </a>
-                  <a href="{{ url_for('seller_dashboard') }}" class="action-card">
+                  <a href="{{ url_for('seller_dashboard') }}" class_="action-card">
                       <h3>Sell Items</h3>
                       <p>List your recycled products</p>
                   </a>
@@ -279,22 +279,24 @@
               <div class="tab-content active" id="scans-tab">
                   {% if user.scans %}
                       <div class="activity-list">
-                          {% for scan in user.scans|sort(attribute='created_at', reverse=true)[:5] %}
-                          <div class="activity-item">
-                              <div class="activity-image">
-                                  <img src="{{ url_for('static', filename=scan.image_path) }}" alt="Waste scan">
-                              </div>
-                              <div class="activity-details">
-                                  <h4>{{ scan.classification|title }}</h4>
-                                  <p>Confidence: {{ "%.2f"|format(scan.confidence*100) }}%</p>
-                                  <p>{{ scan.created_at.strftime('%B %d, %Y at %I:%M %p') }}</p>
-                                  {% if not scan.products %}
-                                  <button class="create-product-btn" data-scan-id="{{ scan.id }}" data-classification="{{ scan.classification }}">
-                                      Create Product
-                                  </button>
-                                  {% endif %}
-                              </div>
-                          </div>
+                          {% for scan in user.scans|sort(attribute='created_at', reverse=true) %}
+                              {% if loop.index <= 5 %}
+                                  <div class="activity-item">
+                                      <div class="activity-image">
+                                          <img src="{{ url_for('static', filename='uploads/' + scan.image_path, _external=True) }}" alt="Waste scan">
+                                      </div>
+                                      <div class="activity-details">
+                                          <h4>{{ scan.classification|title }}</h4>
+                                          <p>Confidence: {{ "%.2f"|format(scan.confidence*100) }}%</p>
+                                          <p>{{ scan.created_at.strftime('%B %d, %Y at %I:%M %p') }}</p>
+                                          {% if not scan.products %}
+                                          <button class="create-product-btn" data-scan-id="{{ scan.id }}" data-classification="{{ scan.classification }}">
+                                              Create Product
+                                          </button>
+                                          {% endif %}
+                                      </div>
+                                  </div>
+                              {% endif %}
                           {% endfor %}
                       </div>
                   {% else %}
@@ -308,7 +310,7 @@
                           {% for product in user.products|sort(attribute='created_at', reverse=true) %}
                           <div class="activity-item">
                               <div class="activity-image">
-                                  <img src="{{ url_for('static', filename=product.image_path) }}" alt="{{ product.title }}">
+                                  <img src="{{ url_for('static', filename='uploads/' + product.image_path, _external=True) }}" alt="{{ product.title }}">
                               </div>
                               <div class="activity-details">
                                   <h4>{{ product.title }}</h4>
