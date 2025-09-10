@@ -304,7 +304,7 @@
           const wasteTypeElem = document.getElementById('waste-type');
           const confidenceElem = document.getElementById('confidence');
 
-          wasteTypeElem.textContent = `Waste Type: ${result.waste_type}`;
+          wasteTypeElem.textContent = `Waste Type: ${result.classification}`;
           confidenceElem.textContent = `Confidence: ${(result.confidence * 100).toFixed(2)}%`;
           resultBox.style.display = 'block';
 
@@ -316,7 +316,7 @@
                 const lng = position.coords.longitude;
                 // Debug: Log retrieved coordinates
                 console.log(`Retrieved Coordinates: Latitude: ${lat}, Longitude: ${lng}`);
-                const wasteTypeValue = result.waste_type;
+                const wasteTypeValue = result.classification;
                 await findRecyclingCenters(lat, lng, wasteTypeValue);
               },
               (error) => {

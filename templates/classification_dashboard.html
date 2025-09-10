@@ -334,7 +334,7 @@
               "
             >
               <img
-                src="{{ url_for('static', filename='uploads/' + scan.image_path) }}"
+                src="{{ url_for('static', filename='uploads/' + scan.image_path, _external=True) }}"
                 alt="Waste scan"
                 style="
                   width: 100%;
@@ -586,7 +586,7 @@
                 .catch((error) => {
                   console.error("Error fetching recycling centers:", error);
                   document.querySelector(".centers-container").innerHTML =
-                    "<p>Error loading recycling centers. Please try again later.</p>";
+                    "<p>Error loading recycling centers. Please try again later.</p>
                 });
             },
             function (error) {
