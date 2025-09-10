@@ -579,14 +579,14 @@
                                     },${
                       center.longitude
                     }" target="_blank" class="btn-custom">Get Directions</a>
-                                `
+                                `;
                     centersContainer.appendChild(centerElement);
                   });
                 })
                 .catch((error) => {
                   console.error("Error fetching recycling centers:", error);
                   document.querySelector(".centers-container").innerHTML =
-                    "<p>Error loading recycling centers. Please try again later.</p>
+                    "<p>Error loading recycling centers. Please try again later.</p>";
                 });
             },
             function (error) {
