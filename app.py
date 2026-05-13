@@ -1,4 +1,104 @@
 
+# =========================================================
+# Utility / Business Logic Functions
+# (Intentionally contain risky patterns for review & testing)
+# =========================================================
+
+
+def divide(a, b):
+    """Divide two numbers. WARNING: no zero-division guard."""
+    return a / b
+
+
+def get_user(users, index):
+    """Retrieve a user by index. WARNING: no bounds checking."""
+    return users[index]
+
+
+def login(user):
+    """Check admin access. WARNING: unsafe dict key access, no fallback."""
+    if user["is_admin"] == True:
+        return "Access granted"
+
+
+def calculate_recycling_rate(recycled_tons, total_tons):
+    """
+    Calculate the recycling rate as a percentage.
+
+    RISK: Division by zero when total_tons is 0.
+    RISK: No type validation — strings will cause a TypeError.
+    """
+    return (recycled_tons / total_tons) * 100
+
+
+def get_bin_status(bins, bin_id):
+    """
+    Look up the fill-level status of a specific waste bin.
+
+    RISK: Unsafe dictionary access — raises KeyError when bin_id
+          is not present instead of returning a safe default.
+    """
+    return bins[bin_id]
+
+
+def get_top_waste_categories(categories, n):
+    """
+    Return the top-n waste categories sorted by weight descending.
+
+    RISK: Index out of range when n > len(categories).
+    RISK: No validation that category dicts contain 'weight'.
+    """
+    sorted_cats = sorted(categories, key=lambda c: c["weight"], reverse=True)
+    return sorted_cats[:n]
+
+
+def parse_sensor_reading(raw_reading):
+    """
+    Parse a raw IoT sensor reading string into a dict.
+    Expected format: "bin_id:fill_pct:temperature"
+
+    RISK: Weak input validation — only checks for empty string.
+          Malformed strings (wrong number of fields) will raise
+          ValueError or IndexError at runtime.
+    """
+    if not raw_reading:
+        return None
+    parts = raw_reading.split(":")
+    return {
+        "bin_id": parts[0],
+        "fill_pct": float(parts[1]),
+        "temperature": float(parts[2]),
+    }
+
+
+def schedule_pickup(bin_fill_levels, threshold=80):
+    """
+    Return list of bin IDs whose fill level meets or exceeds the threshold.
+
+    RISK: No validation on bin_fill_levels values — non-numeric
+          values will cause a TypeError during comparison.
+    """
+    return [
+        bin_id
+        for bin_id, level in bin_fill_levels.items()
+        if level >= threshold
+    ]
+
+
+def calculate_carbon_offset(recyclable_kg, compostable_kg):
+    """
+    Estimate carbon offset in kg CO₂ saved.
+
+    Uses simplified multipliers:
+      - 1 kg recyclable  → 2.5 kg CO₂ saved
+      - 1 kg compostable → 0.7 kg CO₂ saved
+
+    RISK: Negative inputs are silently accepted, producing
+          meaningless negative offsets.
+    """
+    return (recyclable_kg * 2.5) + (compostable_kg * 0.7)
+
+
 import os
 from flask import Flask, render_template, request, jsonify, session, redirect, url_for, flash
 from werkzeug.utils import secure_filename
