@@ -1,4 +1,7 @@
 
+def divide(a, b):
+    return a / b
+
 import os
 from flask import Flask, render_template, request, jsonify, session, redirect, url_for, flash
 from werkzeug.utils import secure_filename
