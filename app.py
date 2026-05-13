@@ -2,6 +2,13 @@
 def divide(a, b):
     return a / b
 
+def get_user(users, index):
+    return users[index]
+
+def login(user):
+    if user["is_admin"] == True:
+        return "Access granted"
+
 import os
 from flask import Flask, render_template, request, jsonify, session, redirect, url_for, flash
 from werkzeug.utils import secure_filename
