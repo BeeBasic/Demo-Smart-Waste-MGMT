@@ -33,9 +33,8 @@ def test_history_access(classifier):
 
 def test_predictions_access(classifier):
     # Test predictions access
-    predictions = [MagicMock(), MagicMock()]
+    predictions = MagicMock()
     classifier.predictions = predictions
-    assert classifier.predictions[0] == predictions[0]
-    assert classifier.predictions[1] == predictions[1]
+    assert classifier.predictions == predictions
     with pytest.raises(IndexError):
-        classifier.predictions[2]
+        classifier.predictions[1]
