@@ -1,66 +1,84 @@
 import pytest
-from unittest.mock import patch
-from tensorflow.keras.models import Model
-from tensorflow.keras.layers import Dense, GlobalAveragePooling2D, Dropout, BatchNormalization
-from tensorflow.keras.applications import MobileNetV2
-from models.classifier import Classifier  # Assuming Classifier is the class containing the train method
+from unittest.mock import patch, MagicMock
+from models.classifier import WasteClassifier
+from models import db
+from flask import current_app
 
 @pytest.fixture
 def classifier():
-    return Classifier()
+    return WasteClassifier()
 
-def test_train_with_frozen_base_model(classifier):
-    with patch.object(classifier.model, 'fit') as mock_fit:
-        train_data = (np.random.rand(10, 224, 224, 3), np.random.rand(10, 10))
-        validation_data = (np.random.rand(10, 224, 224, 3), np.random.rand(10, 10))
-        classifier.train(train_data, validation_data)
-        mock_fit.assert_called_once()
+@pytest.fixture
+def client():
+    with current_app.test_client() as client:
+        yield client
 
-def test_train_with_unfrozen_layers(classifier):
-    with patch.object(classifier.model, 'fit') as mock_fit:
-        train_data = (np.random.rand(10, 224, 224, 3), np.random.rand(10, 10))
-        validation_data = (np.random.rand(10, 224, 224, 3), np.random.rand(10, 10))
-        classifier.train(train_data, validation_data)
-        assert mock_fit.call_count == 2
+def test_init_classifier(classifier):
+    assert classifier.model is not None
+    assert classifier.base_model is not None
+    assert classifier.class_labels is not None
 
-def test_train_with_invalid_epochs(classifier):
-    with pytest.raises(TypeError):
-        train_data = (np.random.rand(10, 224, 224, 3), np.random.rand(10, 10))
-        validation_data = (np.random.rand(10, 224, 224, 3), np.random.rand(10, 10))
-        classifier.train(train_data, validation_data, epochs='invalid')
+def test_safe_indexing(classifier):
+    # Test safe indexing
+    assert classifier.model.layers[0] is not None
+    assert classifier.base_model.layers[0] is not None
+    assert classifier.history1.history[0] is not None
+    assert classifier.predictions[0] is not None
+    assert classifier.class_labels[0] is not None
+    assert classifier.metrics[0] is not None
 
-def test_train_with_invalid_batch_size(classifier):
-    with pytest.raises(TypeError):
-        train_data = (np.random.rand(10, 224, 224, 3), np.random.rand(10, 10))
-        validation_data = (np.random.rand(10, 224, 224, 3), np.random.rand(10, 10))
-        classifier.train(train_data, validation_data, batch_size='invalid')
+def test_safe_indexing_error(classifier):
+    # Test safe indexing error
+    with pytest.raises(IndexError):
+        classifier.model.layers[100]
+    with pytest.raises(IndexError):
+        classifier.base_model.layers[100]
+    with pytest.raises(IndexError):
+        classifier.history1.history[100]
+    with pytest.raises(IndexError):
+        classifier.predictions[100]
+    with pytest.raises(IndexError):
+        classifier.class_labels[100]
+    with pytest.raises(IndexError):
+        classifier.metrics[100]
 
-def test_train_with_invalid_callbacks(classifier):
-    with pytest.raises(TypeError):
-        train_data = (np.random.rand(10, 224, 224, 3), np.random.rand(10, 10))
-        validation_data = (np.random.rand(10, 224, 224, 3), np.random.rand(10, 10))
-        classifier.train(train_data, validation_data, callbacks='invalid')
+def test_invalid_input(classifier):
+    # Test invalid input
+    with pytest.raises(ValueError):
+        classifier.model.layers['invalid_key']
+    with pytest.raises(ValueError):
+        classifier.base_model.layers['invalid_key']
+    with pytest.raises(ValueError):
+        classifier.history1.history['invalid_key']
+    with pytest.raises(ValueError):
+        classifier.predictions['invalid_key']
+    with pytest.raises(ValueError):
+        classifier.class_labels['invalid_key']
+    with pytest.raises(ValueError):
+        classifier.metrics['invalid_key']
 
-def test_train_with_model_not_created(classifier):
-    classifier.model = None
-    train_data = (np.random.rand(10, 224, 224, 3), np.random.rand(10, 10))
-    validation_data = (np.random.rand(10, 224, 224, 3), np.random.rand(10, 10))
-    with patch.object(classifier, '_create_model') as mock_create_model:
-        classifier.train(train_data, validation_data)
-        mock_create_model.assert_called_once()
+def test_shell_call(classifier):
+    # Test shell call
+    with patch('subprocess.run') as mock_run:
+        classifier.shell_call('ls -l')
+        mock_run.assert_called_once_with('ls -l', shell=True)
 
-def test_train_with_base_model_not_found(classifier):
-    classifier.model = Model()
-    train_data = (np.random.rand(10, 224, 224, 3), np.random.rand(10, 10))
-    validation_data = (np.random.rand(10, 224, 224, 3), np.random.rand(10, 10))
-    with patch.object(classifier.model, 'layers', new=[]):
-        with pytest.raises(IndexError):
-            classifier.train(train_data, validation_data)
+def test_shell_call_error(classifier):
+    # Test shell call error
+    with patch('subprocess.run') as mock_run:
+        mock_run.side_effect = subprocess.CalledProcessError(1, 'ls -l')
+        with pytest.raises(subprocess.CalledProcessError):
+            classifier.shell_call('ls -l')
 
-def test_train_with_history_not_found(classifier):
-    classifier.model = Model()
-    train_data = (np.random.rand(10, 224, 224, 3), np.random.rand(10, 10))
-    validation_data = (np.random.rand(10, 224, 224, 3), np.random.rand(10, 10))
-    with patch.object(classifier.model, 'fit', return_value=None):
-        with pytest.raises(AttributeError):
-            classifier.train(train_data, validation_data)
+def test_db_connection(classifier):
+    # Test DB connection
+    with patch('models.db.engine') as mock_engine:
+        classifier.db_connection()
+        mock_engine.connect.assert_called_once()
+
+def test_db_connection_error(classifier):
+    # Test DB connection error
+    with patch('models.db.engine') as mock_engine:
+        mock_engine.connect.side_effect = Exception('DB connection error')
+        with pytest.raises(Exception):
+            classifier.db_connection()

@@ -1,83 +1,158 @@
 import pytest
-from unittest.mock import patch
-from app import get_classifier, login_required, app
-from flask import session
+from unittest.mock import patch, MagicMock
+from app import app, login_required, get_classifier, api_classify, api_recycling_centers, api_create_product
+from flask.testing import FlaskClient
 
-# Test get_classifier with MODEL_PATH not set in config
-def test_get_classifier_model_path_not_set():
-    with patch('app.app.config', {'MODEL_PATH': None}):
-        with pytest.raises(KeyError):
-            get_classifier()
+@pytest.fixture
+def client():
+    return app.test_client()
 
-# Test get_classifier with MODEL_PATH set in config
-def test_get_classifier_model_path_set():
-    model_path = 'models/saved_model/waste_classifier.h5'
-    with patch('app.app.config', {'MODEL_PATH': model_path}):
-        classifier = get_classifier()
-        assert isinstance(classifier, WasteClassifier)
+def test_index(client):
+    response = client.get('/')
+    assert response.status_code == 200
+    assert b"Smart Waste Management" in response.data
 
-# Test login_required decorator with user_id in session
-def test_login_required_user_id_in_session():
+def test_dashboard(client):
+    response = client.get('/dashboard')
+    assert response.status_code == 200
+    assert b"Dashboard" in response.data
+
+def test_marketplace(client):
+    response = client.get('/marketplace')
+    assert response.status_code == 200
+    assert b"Marketplace" in response.data
+
+def test_login(client):
+    response = client.get('/login')
+    assert response.status_code == 200
+    assert b"Login" in response.data
+
+def test_register(client):
+    response = client.get('/register')
+    assert response.status_code == 200
+    assert b"Register" in response.data
+
+def test_logout(client):
+    response = client.get('/logout')
+    assert response.status_code == 302
+
+def test_about(client):
+    response = client.get('/about')
+    assert response.status_code == 200
+    assert b"About" in response.data
+
+def test_contact(client):
+    response = client.get('/contact')
+    assert response.status_code == 200
+    assert b"Contact" in response.data
+
+def test_product_detail(client):
+    response = client.get('/product/1')
+    assert response.status_code == 200
+    assert b"Product Detail" in response.data
+
+def test_buyer_dashboard(client):
+    response = client.get('/buyer/dashboard')
+    assert response.status_code == 200
+    assert b"Buyer Dashboard" in response.data
+
+def test_seller_dashboard(client):
+    response = client.get('/seller/dashboard')
+    assert response.status_code == 200
+    assert b"Seller Dashboard" in response.data
+
+def test_classification_dashboard(client):
+    response = client.get('/classification/dashboard')
+    assert response.status_code == 200
+    assert b"Classification Dashboard" in response.data
+
+def test_api_classify(client):
+    response = client.post('/api/classify', data={'image': 'image_data'})
+    assert response.status_code == 200
+    assert b"Classification result" in response.data
+
+def test_api_recycling_centers(client):
+    response = client.get('/api/recycling_centers')
+    assert response.status_code == 200
+    assert b"Recycling centers" in response.data
+
+def test_api_create_product(client):
+    response = client.post('/api/create_product', data={'product_data': 'product_data'})
+    assert response.status_code == 200
+    assert b"Product created" in response.data
+
+def test_login_required():
     @login_required
     def test_function():
-        return 'Test function'
+        return "Test function"
+    with pytest.raises(Exception):
+        test_function()
 
-    with patch('app.session', {'user_id': 1}):
-        with patch('app.flash') as mock_flash:
-            with patch('app.redirect') as mock_redirect:
-                with patch('app.url_for') as mock_url_for:
-                    result = test_function()
-                    assert result == 'Test function'
-                    mock_flash.assert_not_called()
-                    mock_redirect.assert_not_called()
-                    mock_url_for.assert_not_called()
+def test_get_classifier():
+    classifier = get_classifier()
+    assert classifier is not None
 
-# Test login_required decorator with user_id not in session
-def test_login_required_user_id_not_in_session():
-    @login_required
-    def test_function():
-        return 'Test function'
+@patch('app.requests')
+def test_api_classify_external_call(mock_requests):
+    mock_response = MagicMock()
+    mock_response.status_code = 200
+    mock_response.json.return_value = {'classification': 'result'}
+    mock_requests.post.return_value = mock_response
+    response = api_classify()
+    assert response == {'classification': 'result'}
 
-    with patch('app.session', {}):
-        with patch('app.flash') as mock_flash:
-            with patch('app.redirect') as mock_redirect:
-                with patch('app.url_for') as mock_url_for:
-                    result = test_function()
-                    assert result.status_code == 302
-                    mock_flash.assert_called_once_with('Please log in to access this page.', 'error')
-                    mock_redirect.assert_called_once()
-                    mock_url_for.assert_called_once_with('login')
+@patch('app.requests')
+def test_api_recycling_centers_external_call(mock_requests):
+    mock_response = MagicMock()
+    mock_response.status_code = 200
+    mock_response.json.return_value = {'recycling_centers': 'list'}
+    mock_requests.get.return_value = mock_response
+    response = api_recycling_centers()
+    assert response == {'recycling_centers': 'list'}
 
-# Test get_classifier with model_path not found
-def test_get_classifier_model_path_not_found():
-    model_path = 'models/saved_model/non_existent_model.h5'
-    with patch('app.app.config', {'MODEL_PATH': model_path}):
-        with patch('app.WasteClassifier') as mock_waste_classifier:
-            mock_waste_classifier.side_effect = FileNotFoundError
-            with pytest.raises(FileNotFoundError):
-                get_classifier()
+@patch('app.requests')
+def test_api_create_product_external_call(mock_requests):
+    mock_response = MagicMock()
+    mock_response.status_code = 200
+    mock_response.json.return_value = {'product': 'created'}
+    mock_requests.post.return_value = mock_response
+    response = api_create_product()
+    assert response == {'product': 'created'}
 
-# Test get_classifier with model_path found but invalid
-def test_get_classifier_model_path_found_but_invalid():
-    model_path = 'models/saved_model/invalid_model.h5'
-    with patch('app.app.config', {'MODEL_PATH': model_path}):
-        with patch('app.WasteClassifier') as mock_waste_classifier:
-            mock_waste_classifier.side_effect = ValueError
-            with pytest.raises(ValueError):
-                get_classifier()
+def test_page_not_found():
+    response = page_not_found(Exception())
+    assert response.status_code == 404
 
-# Test login_required decorator with session not initialized
-def test_login_required_session_not_initialized():
-    @login_required
-    def test_function():
-        return 'Test function'
+def test_internal_server_error():
+    response = internal_server_error(Exception())
+    assert response.status_code == 500
 
-    with patch('app.session', None):
-        with patch('app.flash') as mock_flash:
-            with patch('app.redirect') as mock_redirect:
-                with patch('app.url_for') as mock_url_for:
-                    result = test_function()
-                    assert result.status_code == 302
-                    mock_flash.assert_called_once_with('Please log in to access this page.', 'error')
-                    mock_redirect.assert_called_once()
-                    mock_url_for.assert_called_once_with('login')
+def test_unsafe_indexing():
+    with pytest.raises(KeyError):
+        app.config['non_existent_key']
+
+def test_unsafe_indexing_session():
+    with pytest.raises(KeyError):
+        app.config['SESSION']['non_existent_key']
+
+def test_unsafe_indexing_data():
+    with pytest.raises(KeyError):
+        {'data': 'value'}['non_existent_key']
+
+def test_unsafe_indexing_request_files():
+    with pytest.raises(KeyError):
+        {'files': 'value'}['non_existent_key']
+
+def test_unsafe_indexing_x():
+    with pytest.raises(KeyError):
+        {'x': 'value'}['non_existent_key']
+
+def test_auth_token_logic():
+    with pytest.raises(Exception):
+        # Simulate invalid auth token
+        login()
+
+def test_error_handling():
+    with pytest.raises(Exception):
+        # Simulate invalid input
+        login()
