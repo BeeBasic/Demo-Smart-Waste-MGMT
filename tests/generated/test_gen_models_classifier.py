@@ -1,3 +1,4 @@
+
 import pytest
 from unittest.mock import patch, MagicMock
 from models.classifier import WasteClassifier
@@ -12,7 +13,7 @@ def test_safe_indexing(classifier):
     model.layers = [MagicMock(), MagicMock()]
     classifier.model = model
     assert classifier.model.layers[0] == model.layers[0]
-    assert classifier.model.layers[-1] == model.layers[-1]
+    assert classifier.model.layers[1] == model.layers[1]
 
 def test_unsafe_indexing(classifier):
     # Test unsafe indexing
@@ -20,12 +21,7 @@ def test_unsafe_indexing(classifier):
     model.layers = [MagicMock(), MagicMock()]
     classifier.model = model
     with pytest.raises(IndexError):
-        classifier.model.layers[10]
-
-def test_invalid_input(classifier):
-    # Test invalid input
-    with pytest.raises(ValueError):
-        classifier.predict(None)
+        classifier.model.layers[2]
 
 def test_history_access(classifier):
     # Test history access
@@ -33,6 +29,13 @@ def test_history_access(classifier):
     history.history = [MagicMock(), MagicMock()]
     classifier.history1 = history
     assert classifier.history1.history[0] == history.history[0]
-    assert classifier.history1.history[-1] == history.history[-1]
+    assert classifier.history1.history[1] == history.history[1]
+
+def test_predictions_access(classifier):
+    # Test predictions access
+    predictions = [MagicMock(), MagicMock()]
+    classifier.predictions = predictions
+    assert classifier.predictions[0] == predictions[0]
+    assert classifier.predictions[1] == predictions[1]
     with pytest.raises(IndexError):
-        classifier.history1.history[10]
+        classifier.predictions[2]

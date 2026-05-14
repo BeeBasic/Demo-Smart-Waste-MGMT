@@ -1,74 +1,79 @@
-import pytest
-from unittest.mock import patch, MagicMock
-from config import Config, ProductionConfig
-from flask import Flask
 
-@pytest.fixture
+import pytest
+from app import create_app
+
+@pytest.fixture(scope='session')
 def app():
-    """Create a Flask application instance"""
-    app = Flask(__name__)
+    app = create_app()
+    app.config.update({"TESTING": True})
     return app
 
 @pytest.fixture
-def client(app):
-    """Create a test client for the Flask application"""
-    return app.test_client()
+def app_context(app):
+    with app.app_context():
+        yield
 
-def test_config_secret_key(client):
-    """Test that SECRET_KEY is set correctly"""
-    config = Config()
-    assert config.SECRET_KEY == 'dev-key-for-development-only'
 
-def test_config_secret_key_production(client):
-    """Test that SECRET_KEY is set correctly in production"""
-    config = ProductionConfig()
-    assert config.SECRET_KEY == os.getenv('SECRET_KEY')
+import pytest
+from app.database import db
 
-def test_config_database_uri(client):
-    """Test that DATABASE_URL is set correctly"""
-    config = Config()
-    assert config.SQLALCHEMY_DATABASE_URI == 'sqlite:///waste_classification.db'
+@pytest.fixture
+def db_session(app_context):
+    db.create_all()
+    yield db.session
+    db.session.remove()
+    db.drop_all()
 
-def test_config_database_uri_production(client):
-    """Test that DATABASE_URL is set correctly in production"""
-    config = ProductionConfig()
-    assert config.SQLALCHEMY_DATABASE_URI == os.getenv('DATABASE_URL')
 
-def test_config_upload_folder(client):
-    """Test that UPLOAD_FOLDER is set correctly"""
-    config = Config()
-    assert config.UPLOAD_FOLDER == 'uploads'
+@pytest.fixture(autouse=True)
+def safe_env(monkeypatch):
+    monkeypatch.setenv("SECRET_KEY", "test_secret_key_123")
+    monkeypatch.setenv("DATABASE_URL", "sqlite:///:memory:")
 
-def test_config_upload_folder_production(client):
-    """Test that UPLOAD_FOLDER is set correctly in production"""
-    config = ProductionConfig()
-    assert config.UPLOAD_FOLDER == '/app/uploads'
+import pytest
+from unittest.mock import patch, MagicMock
+from config import Config, ProductionConfig
+import os
 
-def test_config_max_content_length(client):
-    """Test that MAX_CONTENT_LENGTH is set correctly"""
-    config = Config()
-    assert config.MAX_CONTENT_LENGTH == 16 * 1024 * 1024
+@pytest.fixture
+def client():
+    from flask import Flask
+    app = Flask(__name__)
+    app.config.from_object(Config)
+    with app.app_context():
+        yield app.test_client()
 
-def test_config_allowed_extensions(client):
-    """Test that ALLOWED_EXTENSIONS is set correctly"""
-    config = Config()
-    assert config.ALLOWED_EXTENSIONS == {'png', 'jpg', 'jpeg', 'gif'}
+@pytest.fixture
+def db():
+    # Mocking the database for testing purposes
+    return MagicMock()
 
-def test_config_model_path(client):
-    """Test that MODEL_PATH is set correctly"""
-    config = Config()
-    assert config.MODEL_PATH == 'models/saved_model/waste_classifier.h5'
+def test_config_secret_key():
+    # Test that SECRET_KEY is set from environment variable
+    with patch.dict(os.environ, {'SECRET_KEY': 'test-secret-key'}):
+        config = Config()
+        assert config.SECRET_KEY == 'test-secret-key'
 
-def test_config_invalid_database_uri(client):
-    """Test that an exception is raised for an invalid DATABASE_URL"""
-    config = Config()
-    with patch('os.getenv', return_value='invalid_database_uri'):
-        with pytest.raises(Exception):
-            config.SQLALCHEMY_DATABASE_URI
+def test_config_debug_mode():
+    # Test that DEBUG mode is set correctly
+    with patch.dict(os.environ, {'DEBUG': 'True'}):
+        config = Config()
+        assert config.DEBUG
 
-def test_config_invalid_upload_folder(client):
-    """Test that an exception is raised for an invalid UPLOAD_FOLDER"""
-    config = Config()
-    with patch('os.getenv', return_value='invalid_upload_folder'):
-        with pytest.raises(Exception):
-            config.UPLOAD_FOLDER
+def test_production_config_secret_key():
+    # Test that SECRET_KEY is required in production
+    with patch.dict(os.environ, {'SECRET_KEY': None}):
+        with pytest.raises(TypeError):
+            ProductionConfig()
+
+def test_config_upload_folder():
+    # Test that UPLOAD_FOLDER is set correctly
+    with patch.dict(os.environ, {'UPLOAD_FOLDER': '/test/upload/folder'}):
+        config = Config()
+        assert config.UPLOAD_FOLDER == '/test/upload/folder'
+
+def test_config_database_uri():
+    # Test that SQLALCHEMY_DATABASE_URI is set correctly
+    with patch.dict(os.environ, {'DATABASE_URL': 'sqlite:///test.db'}):
+        config = Config()
+        assert config.SQLALCHEMY_DATABASE_URI == 'sqlite:///test.db'

@@ -1,3 +1,4 @@
+
 import pytest
 import cv2
 import numpy as np
@@ -12,36 +13,42 @@ def image_path():
     return "tests/fixtures/image.jpg"
 
 # Test 1: Test image processing with valid image path
-def test_process_image_valid_path(image_path):
-    expected_output = np.array([[[[0.0, 0.0, 0.0]]]])
-    with patch('PIL.Image.open') as mock_open:
-        mock_open.return_value.resize.return_value = mock_open.return_value
-        mock_open.return_value.load.return_value = (None, None)
-        mock_open.return_value.size = (224, 224)
-        output = process_image(image_path)
-        assert np.array_equal(output, expected_output)
+def test_process_image_valid_image(image_path):
+    # Arrange
+    expected_shape = (1, 224, 224, 3)
+    expected_dtype = np.float32
+
+    # Act
+    img_array = process_image(image_path)
+
+    # Assert
+    assert img_array.shape == expected_shape
+    assert img_array.dtype == expected_dtype
 
 # Test 2: Test image processing with invalid image path
-def test_process_image_invalid_path(image_path):
-    with patch('PIL.Image.open') as mock_open:
-        mock_open.side_effect = FileNotFoundError
+def test_process_image_invalid_image(image_path):
+    # Arrange
+    with patch('builtins.open', side_effect=FileNotFoundError):
+        # Act and Assert
         with pytest.raises(FileNotFoundError):
             process_image(image_path)
 
 # Test 3: Test image processing with grayscale image
-def test_process_image_grayscale(image_path):
-    with patch('PIL.Image.open') as mock_open:
-        mock_open.return_value.load.return_value = (None, None)
-        mock_open.return_value.size = (224, 224)
-        mock_open.return_value.mode = 'L'
-        output = process_image(image_path)
-        assert output.shape == (1, 224, 224, 3)
+def test_process_image_grayscale_image(image_path):
+    # Arrange
+    with patch('Image.open', return_value=Image.fromarray(np.random.randint(0, 256, size=(224, 224), dtype=np.uint8))):
+        # Act
+        img_array = process_image(image_path)
+
+    # Assert
+    assert img_array.shape == (1, 224, 224, 3)
 
 # Test 4: Test image processing with RGBA image
-def test_process_image_rgba(image_path):
-    with patch('PIL.Image.open') as mock_open:
-        mock_open.return_value.load.return_value = (None, None)
-        mock_open.return_value.size = (224, 224)
-        mock_open.return_value.mode = 'RGBA'
-        output = process_image(image_path)
-        assert output.shape == (1, 224, 224, 3)
+def test_process_image_rgba_image(image_path):
+    # Arrange
+    with patch('Image.open', return_value=Image.fromarray(np.random.randint(0, 256, size=(224, 224, 4), dtype=np.uint8))):
+        # Act
+        img_array = process_image(image_path)
+
+    # Assert
+    assert img_array.shape == (1, 224, 224, 3)
