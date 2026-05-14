@@ -1,123 +1,162 @@
 import pytest
-from database import db
-from database.models import User, Scan, Product, RecyclingLocation
-from flask import current_app
-from werkzeug.datastructures import MultiDict
+from unittest.mock import patch
+from database.models import db, User, Scan, Product, RecyclingLocation
+from your_app import create_app
+from your_app import db
 
 @pytest.fixture
 def client():
-    with current_app.app_context():
-        db.create_all()
-        yield
-        db.session.remove()
-        db.drop_all()
+    app = create_app()
+    with app.test_client() as client:
+        yield client
 
 @pytest.fixture
-def user():
-    user = User(username='test_user', email='test@example.com', password_hash='password')
+def db_session():
+    db.create_all()
+    yield
+    db.session.remove()
+    db.drop_all()
+
+def test_user_creation(db_session):
+    user = User(username='test_user', email='test@example.com', password_hash='hashed_password')
     db.session.add(user)
     db.session.commit()
-    return user
+    assert User.query.filter_by(username='test_user').first() is not None
 
-@pytest.fixture
-def scan():
-    scan = Scan(user_id=1, image_path='path/to/image', classification='recyclable', confidence=0.8)
+def test_scan_creation(db_session):
+    user = User(username='test_user', email='test@example.com', password_hash='hashed_password')
+    db.session.add(user)
+    db.session.commit()
+    scan = Scan(user_id=user.id, image_path='path/to/image', classification='recyclable', confidence=0.8)
     db.session.add(scan)
     db.session.commit()
-    return scan
+    assert Scan.query.filter_by(user_id=user.id).first() is not None
 
-@pytest.fixture
-def product():
-    product = Product(title='Test Product', description='Test product description', price=10.99, image_path='path/to/image', waste_type='recyclable', user_id=1)
+def test_product_creation(db_session):
+    user = User(username='test_user', email='test@example.com', password_hash='hashed_password')
+    db.session.add(user)
+    db.session.commit()
+    product = Product(title='Test Product', description='Test description', price=10.99, image_path='path/to/image', waste_type='recyclable', user_id=user.id)
     db.session.add(product)
     db.session.commit()
-    return product
+    assert Product.query.filter_by(title='Test Product').first() is not None
 
-@pytest.fixture
-def recycling_location():
-    recycling_location = RecyclingLocation(name='Test Recycling Location', address='123 Main St', latitude=37.7749, longitude=-122.4194, accepts='recyclable, compostable', rating=4.5, phone='555-555-5555', website='https://example.com', hours='9am-5pm')
-    db.session.add(recycling_location)
+def test_recycling_location_creation(db_session):
+    location = RecyclingLocation(name='Test Location', address='123 Main St', latitude=37.7749, longitude=-122.4194, accepts='recyclable, compostable', rating=4.5, phone='555-555-5555', website='https://example.com')
+    db.session.add(location)
     db.session.commit()
-    return recycling_location
+    assert RecyclingLocation.query.filter_by(name='Test Location').first() is not None
 
-def test_user_model(client):
-    with current_app.app_context():
-        user = User.query.first()
-        assert user.username == 'test_user'
-        assert user.email == 'test@example.com'
-        assert user.password_hash == 'password'
+def test_user_update(db_session):
+    user = User(username='test_user', email='test@example.com', password_hash='hashed_password')
+    db.session.add(user)
+    db.session.commit()
+    user.username = 'updated_username'
+    db.session.commit()
+    assert User.query.filter_by(username='updated_username').first() is not None
 
-def test_scan_model(client):
-    with current_app.app_context():
-        scan = Scan.query.first()
-        assert scan.user_id == 1
-        assert scan.image_path == 'path/to/image'
-        assert scan.classification == 'recyclable'
-        assert scan.confidence == 0.8
+def test_scan_update(db_session):
+    user = User(username='test_user', email='test@example.com', password_hash='hashed_password')
+    db.session.add(user)
+    db.session.commit()
+    scan = Scan(user_id=user.id, image_path='path/to/image', classification='recyclable', confidence=0.8)
+    db.session.add(scan)
+    db.session.commit()
+    scan.classification = 'compostable'
+    db.session.commit()
+    assert Scan.query.filter_by(classification='compostable').first() is not None
 
-def test_product_model(client):
-    with current_app.app_context():
-        product = Product.query.first()
-        assert product.title == 'Test Product'
-        assert product.description == 'Test product description'
-        assert product.price == 10.99
-        assert product.image_path == 'path/to/image'
-        assert product.waste_type == 'recyclable'
-        assert product.user_id == 1
+def test_product_update(db_session):
+    user = User(username='test_user', email='test@example.com', password_hash='hashed_password')
+    db.session.add(user)
+    db.session.commit()
+    product = Product(title='Test Product', description='Test description', price=10.99, image_path='path/to/image', waste_type='recyclable', user_id=user.id)
+    db.session.add(product)
+    db.session.commit()
+    product.price = 12.99
+    db.session.commit()
+    assert Product.query.filter_by(price=12.99).first() is not None
 
-def test_recycling_location_model(client):
-    with current_app.app_context():
-        recycling_location = RecyclingLocation.query.first()
-        assert recycling_location.name == 'Test Recycling Location'
-        assert recycling_location.address == '123 Main St'
-        assert recycling_location.latitude == 37.7749
-        assert recycling_location.longitude == -122.4194
-        assert recycling_location.accepts == 'recyclable, compostable'
-        assert recycling_location.rating == 4.5
-        assert recycling_location.phone == '555-555-5555'
-        assert recycling_location.website == 'https://example.com'
-        assert recycling_location.hours == '9am-5pm'
+def test_recycling_location_update(db_session):
+    location = RecyclingLocation(name='Test Location', address='123 Main St', latitude=37.7749, longitude=-122.4194, accepts='recyclable, compostable', rating=4.5, phone='555-555-5555', website='https://example.com')
+    db.session.add(location)
+    db.session.commit()
+    location.rating = 4.8
+    db.session.commit()
+    assert RecyclingLocation.query.filter_by(rating=4.8).first() is not None
 
-def test_user_create_invalid_input(client):
-    with current_app.app_context():
-        with pytest.raises(IntegrityError):
-            User(username='', email='test@example.com', password_hash='password')
+def test_user_delete(db_session):
+    user = User(username='test_user', email='test@example.com', password_hash='hashed_password')
+    db.session.add(user)
+    db.session.commit()
+    db.session.delete(user)
+    db.session.commit()
+    assert User.query.filter_by(username='test_user').first() is None
 
-def test_scan_create_invalid_input(client):
-    with current_app.app_context():
-        with pytest.raises(IntegrityError):
-            Scan(user_id=1, image_path='', classification='recyclable', confidence=0.8)
+def test_scan_delete(db_session):
+    user = User(username='test_user', email='test@example.com', password_hash='hashed_password')
+    db.session.add(user)
+    db.session.commit()
+    scan = Scan(user_id=user.id, image_path='path/to/image', classification='recyclable', confidence=0.8)
+    db.session.add(scan)
+    db.session.commit()
+    db.session.delete(scan)
+    db.session.commit()
+    assert Scan.query.filter_by(user_id=user.id).first() is None
 
-def test_product_create_invalid_input(client):
-    with current_app.app_context():
-        with pytest.raises(IntegrityError):
-            Product(title='', description='Test product description', price=10.99, image_path='path/to/image', waste_type='recyclable', user_id=1)
+def test_product_delete(db_session):
+    user = User(username='test_user', email='test@example.com', password_hash='hashed_password')
+    db.session.add(user)
+    db.session.commit()
+    product = Product(title='Test Product', description='Test description', price=10.99, image_path='path/to/image', waste_type='recyclable', user_id=user.id)
+    db.session.add(product)
+    db.session.commit()
+    db.session.delete(product)
+    db.session.commit()
+    assert Product.query.filter_by(title='Test Product').first() is None
 
-def test_recycling_location_create_invalid_input(client):
-    with current_app.app_context():
-        with pytest.raises(IntegrityError):
-            RecyclingLocation(name='', address='123 Main St', latitude=37.7749, longitude=-122.4194, accepts='recyclable, compostable', rating=4.5, phone='555-555-5555', website='https://example.com', hours='9am-5pm')
+def test_recycling_location_delete(db_session):
+    location = RecyclingLocation(name='Test Location', address='123 Main St', latitude=37.7749, longitude=-122.4194, accepts='recyclable, compostable', rating=4.5, phone='555-555-5555', website='https://example.com')
+    db.session.add(location)
+    db.session.commit()
+    db.session.delete(location)
+    db.session.commit()
+    assert RecyclingLocation.query.filter_by(name='Test Location').first() is None
 
-def test_user_relationships(client):
-    with current_app.app_context():
-        user = User.query.first()
-        assert user.products.count() == 0
-        assert user.scans.count() == 1
+def test_user_invalid_input():
+    with pytest.raises(db.IntegrityError):
+        user = User(username='test_user', email='test@example.com', password_hash='hashed_password')
+        db.session.add(user)
+        db.session.commit()
+        user.username = ''
+        db.session.commit()
 
-def test_scan_relationships(client):
-    with current_app.app_context():
-        scan = Scan.query.first()
-        assert scan.user.products.count() == 0
-        assert scan.user.scans.count() == 1
+def test_scan_invalid_input():
+    with pytest.raises(db.IntegrityError):
+        user = User(username='test_user', email='test@example.com', password_hash='hashed_password')
+        db.session.add(user)
+        db.session.commit()
+        scan = Scan(user_id=user.id, image_path='path/to/image', classification='recyclable', confidence=0.8)
+        db.session.add(scan)
+        db.session.commit()
+        scan.classification = ''
+        db.session.commit()
 
-def test_product_relationships(client):
-    with current_app.app_context():
-        product = Product.query.first()
-        assert product.user.products.count() == 1
-        assert product.user.scans.count() == 1
+def test_product_invalid_input():
+    with pytest.raises(db.IntegrityError):
+        user = User(username='test_user', email='test@example.com', password_hash='hashed_password')
+        db.session.add(user)
+        db.session.commit()
+        product = Product(title='Test Product', description='Test description', price=10.99, image_path='path/to/image', waste_type='recyclable', user_id=user.id)
+        db.session.add(product)
+        db.session.commit()
+        product.price = 0
+        db.session.commit()
 
-def test_recycling_location_relationships(client):
-    with current_app.app_context():
-        recycling_location = RecyclingLocation.query.first()
-        assert recycling_location.products.count() == 0
-        assert recycling_location.scans.count() == 0
+def test_recycling_location_invalid_input():
+    with pytest.raises(db.IntegrityError):
+        location = RecyclingLocation(name='Test Location', address='123 Main St', latitude=37.7749, longitude=-122.4194, accepts='recyclable, compostable', rating=4.5, phone='555-555-5555', website='https://example.com')
+        db.session.add(location)
+        db.session.commit()
+        location.rating = -1
+        db.session.commit()

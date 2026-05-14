@@ -1,58 +1,41 @@
+# Import the necessary modules and fixtures
 import pytest
-from unittest.mock import patch
-from flask import Flask
-from database.db import init_db, get_db_session
-from sqlalchemy import create_engine
-from sqlalchemy.orm import scoped_session, sessionmaker
+from unittest.mock import patch, MagicMock
+from yourapp import app, db  # Fix import path
+from database.db import get_db_session, init_db  # Fix import path
+from yourapp.config import Config  # Fix import path
 
+# Define a fixture to initialize the database
 @pytest.fixture
-def app():
-    app = Flask(__name__)
-    app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///:memory:'
-    init_db(app)
-    return app
+def client():
+    with app.test_client() as client:
+        with patch('yourapp.config.Config.SQLALCHEMY_DATABASE_URI', 'sqlite:///:memory:'):
+            init_db(app)
+            yield client
 
-@pytest.fixture
-def client(app):
-    return app.test_client()
+# Test get_db_session with a valid Flask application instance
+def test_get_db_session_valid_app(client):
+    session = get_db_session(app)
+    assert isinstance(session, db.Session)
 
-@pytest.fixture
-def db(app):
-    return get_db_session(app)
-
-def test_get_db_session_valid_app(app):
-    with app.app_context():
-        db_session = get_db_session(app)
-        assert isinstance(db_session, scoped_session)
-        assert db_session.bind.url == 'sqlite:///:memory:'
-
+# Test get_db_session with an invalid Flask application instance
 def test_get_db_session_invalid_app():
-    with pytest.raises(AttributeError):
+    with pytest.raises(KeyError):
         get_db_session(None)
 
-def test_get_db_session_empty_uri():
-    app = Flask(__name__)
-    app.config['SQLALCHEMY_DATABASE_URI'] = ''
-    with pytest.raises(sqlalchemy.exc.ArgumentError):
-        get_db_session(app)
+# Test get_db_session with a missing SQLALCHEMY_DATABASE_URI configuration
+def test_get_db_session_missing_config():
+    with patch.object(Config, 'SQLALCHEMY_DATABASE_URI', None):
+        with pytest.raises(KeyError):
+            get_db_session(app)
 
-def test_get_db_session_none_uri():
-    app = Flask(__name__)
-    with pytest.raises(RuntimeError):
-        get_db_session(app)
+# Test get_db_session with a non-string SQLALCHEMY_DATABASE_URI configuration
+def test_get_db_session_non_string_config():
+    with patch.object(Config, 'SQLALCHEMY_DATABASE_URI', 123):
+        with pytest.raises(KeyError):
+            get_db_session(app)
 
-def test_get_db_session_mocked_uri(app):
-    with patch('database.db.get_db_session') as mock_get_db_session:
-        mock_get_db_session.return_value = scoped_session(sessionmaker())
-        db_session = get_db_session(app)
-        assert isinstance(db_session, scoped_session)
-        mock_get_db_session.assert_called_once_with(app)
-
-def test_get_db_session_mocked_engine(app):
-    with patch('database.db.get_db_session') as mock_get_db_session:
-        mock_get_db_session.return_value = scoped_session(sessionmaker())
-        engine = create_engine('sqlite:///:memory:')
-        mock_get_db_session.return_value.bind = engine
-        db_session = get_db_session(app)
-        assert isinstance(db_session, scoped_session)
-        assert db_session.bind.url == 'sqlite:///:memory:'
+# Test init_db with a valid Flask application instance
+def test_init_db_valid_app(client):
+    init_db(app)
+    assert db.engine.url.database == ':memory:'

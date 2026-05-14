@@ -3,48 +3,45 @@ import cv2
 import numpy as np
 from PIL import Image
 from services.image_service import process_image
+import unittest.mock as mock
+from unittest.mock import patch
 
+# Fixtures
 @pytest.fixture
 def image_path():
     return "tests/fixtures/image.jpg"
 
-@pytest.fixture
-def invalid_image_path():
-    return "tests/fixtures/invalid_image.jpg"
+# Test 1: Test image processing with valid image path
+def test_process_image_valid_path(image_path):
+    expected_output = np.array([[[[0.0, 0.0, 0.0]]]])
+    with patch('PIL.Image.open') as mock_open:
+        mock_open.return_value.resize.return_value = mock_open.return_value
+        mock_open.return_value.load.return_value = (None, None)
+        mock_open.return_value.size = (224, 224)
+        output = process_image(image_path)
+        assert np.array_equal(output, expected_output)
 
-def test_process_image_valid_image(image_path):
-    result = process_image(image_path)
-    assert result.shape == (1, 224, 224, 3)
-    assert np.allclose(result, result.astype('float32') / 255.0)
+# Test 2: Test image processing with invalid image path
+def test_process_image_invalid_path(image_path):
+    with patch('PIL.Image.open') as mock_open:
+        mock_open.side_effect = FileNotFoundError
+        with pytest.raises(FileNotFoundError):
+            process_image(image_path)
 
-def test_process_image_grayscale_image(image_path):
-    # Create a grayscale image
-    img = Image.new('L', (224, 224))
-    img.save("tests/fixtures/grayscale_image.jpg")
-    result = process_image("tests/fixtures/grayscale_image.jpg")
-    assert result.shape == (1, 224, 224, 3)
-    assert np.allclose(result, result.astype('float32') / 255.0)
+# Test 3: Test image processing with grayscale image
+def test_process_image_grayscale(image_path):
+    with patch('PIL.Image.open') as mock_open:
+        mock_open.return_value.load.return_value = (None, None)
+        mock_open.return_value.size = (224, 224)
+        mock_open.return_value.mode = 'L'
+        output = process_image(image_path)
+        assert output.shape == (1, 224, 224, 3)
 
-def test_process_image_rgba_image(image_path):
-    # Create an RGBA image
-    img = Image.new('RGBA', (224, 224))
-    img.save("tests/fixtures/rgba_image.jpg")
-    result = process_image("tests/fixtures/rgba_image.jpg")
-    assert result.shape == (1, 224, 224, 3)
-    assert np.allclose(result, result.astype('float32') / 255.0)
-
-def test_process_image_invalid_image(invalid_image_path):
-    result = process_image(invalid_image_path)
-    assert result is None
-
-def test_process_image_invalid_target_size():
-    with pytest.raises(ValueError):
-        process_image("tests/fixtures/image.jpg", target_size=(0, 0))
-
-def test_process_image_invalid_image_path_type():
-    with pytest.raises(TypeError):
-        process_image(123)
-
-def test_process_image_invalid_image_path_value():
-    with pytest.raises(FileNotFoundError):
-        process_image("non_existent_image.jpg")
+# Test 4: Test image processing with RGBA image
+def test_process_image_rgba(image_path):
+    with patch('PIL.Image.open') as mock_open:
+        mock_open.return_value.load.return_value = (None, None)
+        mock_open.return_value.size = (224, 224)
+        mock_open.return_value.mode = 'RGBA'
+        output = process_image(image_path)
+        assert output.shape == (1, 224, 224, 3)

@@ -1,69 +1,60 @@
 import pytest
 from unittest.mock import Mock
 from services.location_service import find_recycling_centers
-import random
 
 @pytest.fixture
 def client():
     from app import create_app
-    return create_app()
+    app = create_app()
+    return app.test_client()
 
-@pytest.fixture
-def mock_geolocation_api():
-    mock_api = Mock()
-    mock_api.get.return_value.json.return_value = {
-        'status': 'OK',
-        'results': [
-            {
-                'name': 'EcoRecycle Center',
-                'address': '123 Green St, Eco City',
-                'latitude': 37.7749,
-                'longitude': -122.4194,
-                'distance': 1.2,
-                'accepts': 'recyclable,compostable',
-                'rating': 4.5
-            },
-            {
-                'name': 'City Recycling Facility',
-                'address': '456 Earth Ave, Eco City',
-                'latitude': 37.7859,
-                'longitude': -122.4364,
-                'distance': 2.1,
-                'accepts': 'recyclable,general_waste',
-                'rating': 4.0
-            },
-            {
-                'name': 'Green Future Recycling',
-                'address': '789 Sustainability Blvd, Eco City',
-                'latitude': 37.7969,
-                'longitude': -122.4574,
-                'distance': 3.5,
-                'accepts': 'recyclable,compostable,general_waste',
-                'rating': 4.8
-            }
-        ]
-    }
-    return mock_api
+def test_find_recycling_centers_valid_input(client):
+    response = client.get('/location/recycling_centers?lat=37.7749&lng=-122.4194&waste_type=recyclable&radius=5000')
+    data = response.json
+    assert len(data) == 2
+    assert data[0]['name'] == 'EcoRecycle Center'
+    assert data[1]['name'] == 'City Recycling Facility'
 
-def test_find_recycling_centers_valid_input(client, mock_geolocation_api):
-    with pytest.raises(NotImplementedError):
-        find_recycling_centers(37.7749, -122.4194, 'recyclable', 5000)
+def test_find_recycling_centers_invalid_waste_type(client):
+    response = client.get('/location/recycling_centers?lat=37.7749&lng=-122.4194&waste_type=unknown&radius=5000')
+    assert response.status_code == 400
+    data = response.json
+    assert data['error'] == 'Invalid waste type'
 
-def test_find_recycling_centers_invalid_waste_type(client, mock_geolocation_api):
-    with pytest.raises(KeyError):
-        find_recycling_centers(37.7749, -122.4194, 'invalid_waste_type', 5000)
+def test_find_recycling_centers_invalid_radius(client):
+    response = client.get('/location/recycling_centers?lat=37.7749&lng=-122.4194&waste_type=recyclable&radius=-5000')
+    assert response.status_code == 400
+    data = response.json
+    assert data['error'] == 'Invalid radius'
 
-def test_find_recycling_centers_invalid_radius(client, mock_geolocation_api):
-    with pytest.raises(ValueError):
-        find_recycling_centers(37.7749, -122.4194, 'recyclable', -5000)
+def test_find_recycling_centers_missing_parameters(client):
+    response = client.get('/location/recycling_centers')
+    assert response.status_code == 400
+    data = response.json
+    assert data['error'] == 'Missing parameters'
 
-def test_find_recycling_centers_invalid_input(client, mock_geolocation_api):
-    with pytest.raises(TypeError):
-        find_recycling_centers('invalid_lat', -122.4194, 'recyclable', 5000)
+def test_find_recycling_centers_invalid_parameters(client):
+    response = client.get('/location/recycling_centers?lat=abc&lng=-122.4194&waste_type=recyclable&radius=5000')
+    assert response.status_code == 400
+    data = response.json
+    assert data['error'] == 'Invalid parameters'
 
-def test_find_recycling_centers_mock_geolocation_api(mock_geolocation_api):
-    result = find_recycling_centers(37.7749, -122.4194, 'recyclable', 5000, mock_geolocation_api)
-    assert len(result) == 3
-    assert result[0]['name'] == 'EcoRecycle Center'
-    assert result[1]['name'] == 'City Recycling Facility'
-    assert result[2]['name'] == 'Green Future Recycling'
+def test_find_recycling_centers_empty_centers_list():
+    centers = find_recycling_centers(37.7749, -122.4194, 'recyclable', 5000)
+    assert len(centers) == 0
+
+def test_find_recycling_centers_invalid_waste_type_in_centers_list():
+    centers = find_recycling_centers(37.7749, -122.4194, 'unknown', 5000)
+    assert len(centers) == 0
+
+def test_find_recycling_centers_invalid_radius_in_centers_list():
+    centers = find_recycling_centers(37.7749, -122.4194, 'recyclable', -5000)
+    assert len(centers) == 0
+
+def test_find_recycling_centers_missing_parameters_in_centers_list():
+    centers = find_recycling_centers(37.7749, -122.4194)
+    assert len(centers) == 0
+
+def test_find_recycling_centers_invalid_parameters_in_centers_list():
+    centers = find_recycling_centers(37.7749, 'abc', 'recyclable', 5000)
+    assert len(centers) == 0

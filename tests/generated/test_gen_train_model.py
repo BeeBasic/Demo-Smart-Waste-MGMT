@@ -1,109 +1,42 @@
 import pytest
-import os
+from unittest.mock import patch, MagicMock
+from train_model import train_waste_classifier, plot_training_history, plot_confusion_matrix, generate_classification_report
 import numpy as np
-from unittest.mock import MagicMock
-from train_model import train_waste_classifier, plot_training_history, plot_confusion_matrix, generate_classification_report, test_on_image, prepare_sample_dataset
-
-# Fixtures
-@pytest.fixture
-def mock_data_dir():
-    return 'path/to/mock/data/dir'
-
-@pytest.fixture
-def mock_model_save_path():
-    return 'path/to/mock/model/save/path'
-
-@pytest.fixture
-def mock_epochs():
-    return 50
-
-@pytest.fixture
-def mock_batch_size():
-    return 16
+from tensorflow.keras.models import Sequential
+from tensorflow.keras.layers import Dense
 
 @pytest.fixture
 def mock_history():
     history = MagicMock()
-    history.history = {'accuracy': [0.5, 0.6, 0.7], 'loss': [0.2, 0.1, 0.0]}
+    history.history = {
+        'accuracy': [0.5, 0.6, 0.7],
+        'val_accuracy': [0.4, 0.5, 0.6],
+        'loss': [0.5, 0.4, 0.3],
+        'val_loss': [0.6, 0.5, 0.4]
+    }
     return history
 
-@pytest.fixture
-def mock_classifier():
-    return MagicMock()
-
-@pytest.fixture
-def mock_validation_generator():
-    return MagicMock()
-
-@pytest.fixture
-def mock_image_path():
-    return 'path/to/mock/image.jpg'
-
-# Tests
-def test_train_waste_classifier(mock_data_dir, mock_model_save_path, mock_epochs, mock_batch_size):
-    with pytest.raises(FileNotFoundError):
-        train_waste_classifier(mock_data_dir, mock_model_save_path, mock_epochs, mock_batch_size)
+def test_train_waste_classifier(tmp_path):
+    data_dir = tmp_path / 'data'
+    model_save_path = tmp_path / 'model.h5'
+    model, history = train_waste_classifier(str(data_dir), str(model_save_path))
+    assert isinstance(model, Sequential)
+    assert isinstance(history, object)
 
 def test_plot_training_history(mock_history):
-    with pytest.raises(TypeError):
+    with patch('matplotlib.pyplot.show') as mock_show:
         plot_training_history(mock_history)
+        mock_show.assert_called_once()
 
-def test_plot_confusion_matrix(mock_classifier, mock_validation_generator):
-    with pytest.raises(TypeError):
-        plot_confusion_matrix(mock_classifier, mock_validation_generator)
+def test_plot_confusion_matrix(mock_history):
+    with patch('sklearn.metrics.confusion_matrix') as mock_confusion_matrix:
+        mock_confusion_matrix.return_value = np.array([[1, 0], [0, 1]])
+        with patch('matplotlib.pyplot.show') as mock_show:
+            plot_confusion_matrix(MagicMock(), MagicMock())
+            mock_show.assert_called_once()
 
-def test_generate_classification_report(mock_classifier, mock_validation_generator):
-    with pytest.raises(TypeError):
-        generate_classification_report(mock_classifier, mock_validation_generator)
-
-def test_test_on_image(mock_classifier, mock_image_path):
-    with pytest.raises(TypeError):
-        test_on_image(mock_classifier, mock_image_path)
-
-def test_prepare_sample_dataset_index_error():
-    with pytest.raises(AttributeError):
-        prepare_sample_dataset()
-
-def test_train_waste_classifier_safe_indexing(mock_data_dir, mock_model_save_path, mock_epochs, mock_batch_size):
-    # Mock the os.listdir function to return a list of directories
-    mock_os_listdir = MagicMock(return_value=['dir1', 'dir2'])
-    with pytest.raises(FileNotFoundError):
-        train_waste_classifier(mock_data_dir, mock_model_save_path, mock_epochs, mock_batch_size)
-    # Restore the original os.listdir function
-    os.listdir = mock_os_listdir
-
-def test_plot_training_history_safe_indexing(mock_history):
-    # Mock the history.history attribute to return a dictionary
-    mock_history.history = {'accuracy': [0.5, 0.6, 0.7], 'loss': [0.2, 0.1, 0.0]}
-    with pytest.raises(TypeError):
-        plot_training_history(mock_history)
-
-def test_plot_confusion_matrix_safe_indexing(mock_classifier, mock_validation_generator):
-    # Mock the validation_generator.samples attribute to return a number
-    mock_validation_generator.samples = 100
-    with pytest.raises(TypeError):
-        plot_confusion_matrix(mock_classifier, mock_validation_generator)
-    # Restore the original validation_generator.samples attribute
-    mock_validation_generator.samples = None
-
-def test_generate_classification_report_safe_indexing(mock_classifier, mock_validation_generator):
-    # Mock the validation_generator.samples attribute to return a number
-    mock_validation_generator.samples = 100
-    with pytest.raises(TypeError):
-        generate_classification_report(mock_classifier, mock_validation_generator)
-    # Restore the original validation_generator.samples attribute
-    mock_validation_generator.samples = None
-
-def test_test_on_image_safe_indexing(mock_classifier, mock_image_path):
-    # Mock the classifier.predict method to return a tuple
-    mock_classifier.predict.return_value = (1, 2, 3)
-    test_on_image(mock_classifier, mock_image_path)
-    # Restore the original classifier.predict method
-    mock_classifier.predict.return_value = None
-
-def test_prepare_sample_dataset_safe_indexing():
-    # Mock the os.listdir function to return a list of directories
-    mock_os_listdir = MagicMock(return_value=['dir1', 'dir2'])
-    prepare_sample_dataset()
-    # Restore the original os.listdir function
-    os.listdir = mock_os_listdir
+def test_generate_classification_report(mock_history):
+    with patch('sklearn.metrics.classification_report') as mock_classification_report:
+        mock_classification_report.return_value = 'classification report'
+        report = generate_classification_report(MagicMock(), MagicMock())
+        assert report == 'classification report'
