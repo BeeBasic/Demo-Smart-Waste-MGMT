@@ -1,9 +1,8 @@
 import pytest
 from unittest.mock import patch
-from your_app import forms  # Assuming your_app is the correct import path
-from your_app import create_app  # Assuming your_app is the correct import path
-from your_app import db  # Assuming your_app is the correct import path
-from your_app import Client  # Assuming your_app is the correct import path
+from forms import RegistrationForm
+from wtforms import ValidationError
+from your_app import create_app, db  # Replace 'your_app' with your actual app name
 
 @pytest.fixture
 def client():
@@ -12,80 +11,77 @@ def client():
         yield client
 
 @pytest.fixture
-def db_session():
-    db.create_all()
-    yield
-    db.session.remove()
-    db.drop_all()
+def app():
+    return create_app()
 
-def test_registration_form(client, db_session):
-    # Test form submission with valid data
-    data = {
-        'username': 'test_user',
-        'email': 'test@example.com',
-        'password': 'test_password',
-        'confirm_password': 'test_password'
-    }
-    response = client.post('/register', data=data)
-    assert response.status_code == 302  # Redirect to login page
-    assert db_session.query(forms.RegistrationForm).count() == 1
+def test_registration_form(client):
+    form = RegistrationForm()
+    assert form.username.data == ''
+    assert form.email.data == ''
+    assert form.password.data == ''
+    assert form.confirm_password.data == ''
+    assert form.submit.label.text == 'Register'
 
-def test_registration_form_invalid_username(client, db_session):
-    # Test form submission with invalid username (too short)
-    data = {
-        'username': 'ab',
-        'email': 'test@example.com',
-        'password': 'test_password',
-        'confirm_password': 'test_password'
-    }
-    response = client.post('/register', data=data)
-    assert response.status_code == 400  # Bad request
-    assert b'Username must be between 4 and 25 characters.' in response.data
+def test_registration_form_username(client):
+    form = RegistrationForm()
+    form.username.data = 'a'  # Test minimum length
+    with pytest.raises(ValidationError):
+        form.validate()
+    form.username.data = 'a' * 26  # Test maximum length
+    with pytest.raises(ValidationError):
+        form.validate()
+    form.username.data = 'a' * 25  # Test valid length
+    assert form.validate() is None
 
-def test_registration_form_invalid_password(client, db_session):
-    # Test form submission with invalid password (too short)
-    data = {
-        'username': 'test_user',
-        'email': 'test@example.com',
-        'password': 'test',
-        'confirm_password': 'test'
-    }
-    response = client.post('/register', data=data)
-    assert response.status_code == 400  # Bad request
-    assert b'Password must be at least 6 characters long.' in response.data
+def test_registration_form_email(client):
+    form = RegistrationForm()
+    form.email.data = 'invalid_email'  # Test invalid email
+    with pytest.raises(ValidationError):
+        form.validate()
 
-def test_registration_form_mismatched_passwords(client, db_session):
-    # Test form submission with mismatched passwords
-    data = {
-        'username': 'test_user',
-        'email': 'test@example.com',
-        'password': 'test_password',
-        'confirm_password': 'wrong_password'
-    }
-    response = client.post('/register', data=data)
-    assert response.status_code == 400  # Bad request
-    assert b'Passwords must match.' in response.data
+def test_registration_form_password(client):
+    form = RegistrationForm()
+    form.password.data = 'short'  # Test minimum length
+    with pytest.raises(ValidationError):
+        form.validate()
 
-def test_registration_form_missing_fields(client, db_session):
-    # Test form submission with missing fields
-    data = {
-        'username': 'test_user',
-        'password': 'test_password',
-        'confirm_password': 'test_password'
-    }
-    response = client.post('/register', data=data)
-    assert response.status_code == 400  # Bad request
-    assert b'Email is required.' in response.data
+def test_registration_form_confirm_password(client):
+    form = RegistrationForm()
+    form.password.data = 'password'
+    form.confirm_password.data = 'wrong_password'  # Test mismatched passwords
+    with pytest.raises(ValidationError):
+        form.validate()
 
-def test_registration_form_duplicate_username(client, db_session):
-    # Test form submission with duplicate username
-    data = {
-        'username': 'test_user',
-        'email': 'test@example.com',
-        'password': 'test_password',
-        'confirm_password': 'test_password'
-    }
-    client.post('/register', data=data)
-    response = client.post('/register', data=data)
-    assert response.status_code == 400  # Bad request
-    assert b'Username already exists.' in response.data
+def test_registration_form_submit(client):
+    form = RegistrationForm()
+    form.submit.click()  # Test submit button
+    assert form.validate() is None
+
+def test_registration_form_invalid_input(client):
+    form = RegistrationForm()
+    form.username.data = 'a' * 26  # Test maximum length
+    form.email.data = 'invalid_email'  # Test invalid email
+    form.password.data = 'short'  # Test minimum length
+    with pytest.raises(ValidationError):
+        form.validate()
+
+def test_registration_form_valid_input(client):
+    form = RegistrationForm()
+    form.username.data = 'username'
+    form.email.data = 'valid_email@example.com'
+    form.password.data = 'password'
+    form.confirm_password.data = 'password'
+    assert form.validate() is None
+
+@patch('your_app.db.session.add')
+@patch('your_app.db.session.commit')
+def test_registration_form_db_commit(mock_commit, mock_add, client):
+    form = RegistrationForm()
+    form.username.data = 'username'
+    form.email.data = 'valid_email@example.com'
+    form.password.data = 'password'
+    form.confirm_password.data = 'password'
+    form.validate()
+    form.submit.click()
+    mock_add.assert_called_once()
+    mock_commit.assert_called_once()

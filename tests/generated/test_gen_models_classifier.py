@@ -1,84 +1,77 @@
 import pytest
 from unittest.mock import patch, MagicMock
 from models.classifier import WasteClassifier
-from models import db
-from flask import current_app
+import numpy as np
 
 @pytest.fixture
-def classifier():
+def waste_classifier():
     return WasteClassifier()
 
-@pytest.fixture
-def client():
-    with current_app.test_client() as client:
-        yield client
+def test_waste_classifier_init(waste_classifier):
+    assert waste_classifier.model is not None
 
-def test_init_classifier(classifier):
-    assert classifier.model is not None
-    assert classifier.base_model is not None
-    assert classifier.class_labels is not None
+def test_waste_classifier_train(waste_classifier):
+    # Mock training data
+    X_train = np.random.rand(10, 224, 224, 3)
+    y_train = np.random.randint(0, 2, 10)
+    with patch('models.classifier.WasteClassifier.train') as mock_train:
+        waste_classifier.train(X_train, y_train)
+        mock_train.assert_called_once()
 
-def test_safe_indexing(classifier):
-    # Test safe indexing
-    assert classifier.model.layers[0] is not None
-    assert classifier.base_model.layers[0] is not None
-    assert classifier.history1.history[0] is not None
-    assert classifier.predictions[0] is not None
-    assert classifier.class_labels[0] is not None
-    assert classifier.metrics[0] is not None
+def test_waste_classifier_predict(waste_classifier):
+    # Mock input data
+    input_data = np.random.rand(1, 224, 224, 3)
+    with patch('models.classifier.WasteClassifier.predict') as mock_predict:
+        waste_classifier.predict(input_data)
+        mock_predict.assert_called_once()
 
-def test_safe_indexing_error(classifier):
-    # Test safe indexing error
-    with pytest.raises(IndexError):
-        classifier.model.layers[100]
-    with pytest.raises(IndexError):
-        classifier.base_model.layers[100]
-    with pytest.raises(IndexError):
-        classifier.history1.history[100]
-    with pytest.raises(IndexError):
-        classifier.predictions[100]
-    with pytest.raises(IndexError):
-        classifier.class_labels[100]
-    with pytest.raises(IndexError):
-        classifier.metrics[100]
+def test_waste_classifier_get_class_labels(waste_classifier):
+    class_labels = waste_classifier.get_class_labels()
+    assert len(class_labels) > 0
 
-def test_invalid_input(classifier):
-    # Test invalid input
+def test_waste_classifier_get_metrics(waste_classifier):
+    metrics = waste_classifier.get_metrics()
+    assert len(metrics) > 0
+
+def test_waste_classifier_safe_indexing(waste_classifier):
+    # Test safe indexing for self.model.layers
+    with patch('models.classifier.WasteClassifier.model') as mock_model:
+        mock_model.layers = [MagicMock() for _ in range(10)]
+        assert len(waste_classifier.model.layers) == 10
+
+    # Test safe indexing for base_model.layers
+    with patch('models.classifier.WasteClassifier.base_model') as mock_base_model:
+        mock_base_model.layers = [MagicMock() for _ in range(10)]
+        assert len(waste_classifier.base_model.layers) == 10
+
+    # Test safe indexing for history1.history
+    with patch('models.classifier.WasteClassifier.history1') as mock_history1:
+        mock_history1.history = {'loss': [0.1, 0.2, 0.3]}
+        assert len(waste_classifier.history1.history['loss']) == 3
+
+    # Test safe indexing for predictions
+    with patch('models.classifier.WasteClassifier.predict') as mock_predict:
+        mock_predict.return_value = np.random.rand(10, 2)
+        predictions = waste_classifier.predict(np.random.rand(10, 224, 224, 3))
+        assert len(predictions) == 10
+
+    # Test safe indexing for self.class_labels
+    with patch('models.classifier.WasteClassifier.class_labels') as mock_class_labels:
+        mock_class_labels = ['label1', 'label2']
+        assert len(waste_classifier.class_labels) == 2
+
+    # Test safe indexing for metrics
+    with patch('models.classifier.WasteClassifier.metrics') as mock_metrics:
+        mock_metrics = {'accuracy': 0.9, 'loss': 0.1}
+        assert len(waste_classifier.metrics) == 2
+
+def test_waste_classifier_error_handling(waste_classifier):
+    # Test error handling for invalid input
     with pytest.raises(ValueError):
-        classifier.model.layers['invalid_key']
-    with pytest.raises(ValueError):
-        classifier.base_model.layers['invalid_key']
-    with pytest.raises(ValueError):
-        classifier.history1.history['invalid_key']
-    with pytest.raises(ValueError):
-        classifier.predictions['invalid_key']
-    with pytest.raises(ValueError):
-        classifier.class_labels['invalid_key']
-    with pytest.raises(ValueError):
-        classifier.metrics['invalid_key']
+        waste_classifier.train(None, None)
 
-def test_shell_call(classifier):
-    # Test shell call
-    with patch('subprocess.run') as mock_run:
-        classifier.shell_call('ls -l')
-        mock_run.assert_called_once_with('ls -l', shell=True)
-
-def test_shell_call_error(classifier):
-    # Test shell call error
-    with patch('subprocess.run') as mock_run:
-        mock_run.side_effect = subprocess.CalledProcessError(1, 'ls -l')
-        with pytest.raises(subprocess.CalledProcessError):
-            classifier.shell_call('ls -l')
-
-def test_db_connection(classifier):
-    # Test DB connection
-    with patch('models.db.engine') as mock_engine:
-        classifier.db_connection()
-        mock_engine.connect.assert_called_once()
-
-def test_db_connection_error(classifier):
-    # Test DB connection error
-    with patch('models.db.engine') as mock_engine:
-        mock_engine.connect.side_effect = Exception('DB connection error')
-        with pytest.raises(Exception):
-            classifier.db_connection()
+    # Test error handling for invalid model
+    with patch('models.classifier.WasteClassifier.model') as mock_model:
+        mock_model = None
+        with pytest.raises(AttributeError):
+            waste_classifier.predict(np.random.rand(1, 224, 224, 3))

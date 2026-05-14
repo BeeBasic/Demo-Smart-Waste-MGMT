@@ -1,57 +1,54 @@
-# Import necessary modules
 import pytest
-from unittest.mock import Mock
-from database.db import get_db_session, init_db
+from unittest.mock import MagicMock
+from database.db import init_db, get_db_session
 from flask import Flask
 from flask_sqlalchemy import SQLAlchemy
-from sqlalchemy import create_engine
-from sqlalchemy.orm import scoped_session, sessionmaker
+import os
 
-# Define a test client fixture
 @pytest.fixture
-def client():
+def app():
     app = Flask(__name__)
     app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///:memory:'
     db = SQLAlchemy(app)
-    init_db(app)
-    yield app.test_client()
+    return app
 
-# Define a test database fixture
 @pytest.fixture
-def db_session():
-    engine = create_engine('sqlite:///:memory:')
-    session_factory = sessionmaker(bind=engine)
-    return scoped_session(session_factory)
+def client(app):
+    return app.test_client()
 
-# Test get_db_session function
-def test_get_db_session(client):
-    # Mock the Flask application instance
-    app = client.application
-    # Test safe indexing
-    app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///:memory:'
-    db_session = get_db_session(app)
-    assert isinstance(db_session, scoped_session)
-    # Test invalid database URI
+def test_get_db_session(app):
+    mock_create_engine = MagicMock()
+    mock_create_engine.return_value = 'mock_engine'
+    app.config['SQLALCHEMY_DATABASE_URI'] = 'mock_uri'
+    mock_session_factory = MagicMock()
+    mock_session_factory.return_value = 'mock_session_factory'
+    with pytest.raises(KeyError):
+        get_db_session(app)
+    mock_create_engine.assert_called_once_with(app.config['SQLALCHEMY_DATABASE_URI'])
+    mock_session_factory.assert_called_once_with(bind=mock_create_engine.return_value)
+
+def test_get_db_session_invalid_uri(app):
     app.config['SQLALCHEMY_DATABASE_URI'] = 'invalid_uri'
-    with pytest.raises(ValueError):
+    with pytest.raises(sqlalchemy.exc.ArgumentError):
         get_db_session(app)
 
-# Test init_db function
-def test_init_db(client):
-    # Mock the Flask application instance
-    app = client.application
-    # Test init_db function
+def test_init_db(app):
+    db = SQLAlchemy(app)
     init_db(app)
-    assert hasattr(app, 'db')
-    # Test invalid database URI
-    app.config['SQLALCHEMY_DATABASE_URI'] = 'invalid_uri'
-    with pytest.raises(ValueError):
-        init_db(app)
+    assert db.engine.url.drivername == 'sqlite'
 
-# Test get_db_session with invalid database URI
-def test_get_db_session_invalid_uri(db_session):
-    # Mock the Flask application instance
-    app = Mock()
+def test_get_db_session_unsafe_indexing(app):
+    mock_create_engine = MagicMock()
+    mock_create_engine.return_value = 'mock_engine'
+    app.config['SQLALCHEMY_DATABASE_URI'] = 'mock_uri'
+    mock_session_factory = MagicMock()
+    mock_session_factory.return_value = 'mock_session_factory'
+    with pytest.raises(KeyError):
+        get_db_session(app)
+    mock_create_engine.assert_called_once_with(app.config['SQLALCHEMY_DATABASE_URI'])
+    mock_session_factory.assert_called_once_with(bind=mock_create_engine.return_value)
+
+def test_get_db_session_unsafe_indexing_invalid_uri(app):
     app.config['SQLALCHEMY_DATABASE_URI'] = 'invalid_uri'
-    with pytest.raises(ValueError):
+    with pytest.raises(sqlalchemy.exc.ArgumentError):
         get_db_session(app)
