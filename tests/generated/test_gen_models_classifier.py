@@ -1,74 +1,110 @@
 import pytest
 from unittest.mock import patch, MagicMock
 from models.classifier import WasteClassifier
-from models import db
+from tensorflow.keras.models import Model
+from tensorflow.keras.layers import Input
+from tensorflow.keras.optimizers import Adam
+from tensorflow.keras.callbacks import EarlyStopping, ModelCheckpoint
+from tensorflow.keras.preprocessing.image import ImageDataGenerator
+from tensorflow.keras.utils import to_categorical
+import numpy as np
 
 @pytest.fixture
-def classifier():
+def waste_classifier():
     return WasteClassifier()
 
 @pytest.fixture
-def client():
-    with patch('flask.current_app.test_client'):
-        yield
+def model():
+    input_layer = Input(shape=(224, 224, 3))
+    output_layer = Model(input_layer)
+    return output_layer
 
-def test_init_classifier(classifier):
-    assert isinstance(classifier.model, object)
-    assert isinstance(classifier.base_model, object)
+@pytest.fixture
+def base_model():
+    input_layer = Input(shape=(224, 224, 3))
+    output_layer = Model(input_layer)
+    return output_layer
 
-def test_load_model(classifier, client):
-    with patch('models.classifier.load_model') as mock_load_model:
-        classifier.load_model()
-        mock_load_model.assert_called_once()
+@pytest.fixture
+def history():
+    return MagicMock()
 
-def test_train_model(classifier, client):
-    with patch('models.classifier.train_model') as mock_train_model:
-        classifier.train_model()
-        mock_train_model.assert_called_once()
+@pytest.fixture
+def predictions():
+    return np.random.rand(10, 10)
 
-def test_evaluate_model(classifier, client):
-    with patch('models.classifier.evaluate_model') as mock_evaluate_model:
-        classifier.evaluate_model()
-        mock_evaluate_model.assert_called_once()
+@pytest.fixture
+def class_labels():
+    return np.random.rand(10)
 
-def test_predict(classifier, client):
-    with patch('models.classifier.predict') as mock_predict:
-        mock_predict.return_value = [1, 2, 3]
-        predictions = classifier.predict()
-        assert predictions == [1, 2, 3]
+@pytest.fixture
+def metrics():
+    return {'accuracy': 0.9, 'loss': 0.1}
 
-def test_get_class_labels(classifier, client):
-    with patch('models.classifier.get_class_labels') as mock_get_class_labels:
-        mock_get_class_labels.return_value = ['label1', 'label2']
-        class_labels = classifier.get_class_labels()
-        assert class_labels == ['label1', 'label2']
+def test_waste_classifier_init(waste_classifier):
+    assert isinstance(waste_classifier, WasteClassifier)
+    assert waste_classifier.model is None
+    assert waste_classifier.base_model is None
+    assert waste_classifier.history is None
 
-def test_get_metrics(classifier, client):
-    with patch('models.classifier.get_metrics') as mock_get_metrics:
-        mock_get_metrics.return_value = {'metric1': 0.5, 'metric2': 0.8}
-        metrics = classifier.get_metrics()
-        assert metrics == {'metric1': 0.5, 'metric2': 0.8}
+def test_waste_classifier_create_model(waste_classifier, model):
+    waste_classifier.create_model(model)
+    assert isinstance(waste_classifier.model, Model)
 
-def test_load_model_invalid_input():
-    with pytest.raises(ValueError):
-        WasteClassifier().load_model('invalid_input')
+def test_waste_classifier_compile_model(waste_classifier, model):
+    waste_classifier.compile_model(model)
+    assert isinstance(waste_classifier.model.optimizer, Adam)
 
-def test_train_model_invalid_input():
-    with pytest.raises(ValueError):
-        WasteClassifier().train_model('invalid_input')
+def test_waste_classifier_fit_model(waste_classifier, model, history):
+    waste_classifier.fit_model(model, history)
+    assert isinstance(waste_classifier.history, dict)
 
-def test_evaluate_model_invalid_input():
-    with pytest.raises(ValueError):
-        WasteClassifier().evaluate_model('invalid_input')
+def test_waste_classifier_get_class_labels(waste_classifier, class_labels):
+    waste_classifier.class_labels = class_labels
+    assert np.array_equal(waste_classifier.get_class_labels(), class_labels)
 
-def test_predict_invalid_input():
-    with pytest.raises(ValueError):
-        WasteClassifier().predict('invalid_input')
+def test_waste_classifier_get_metrics(waste_classifier, metrics):
+    waste_classifier.metrics = metrics
+    assert waste_classifier.get_metrics() == metrics
 
-def test_get_class_labels_invalid_input():
-    with pytest.raises(ValueError):
-        WasteClassifier().get_class_labels('invalid_input')
+def test_waste_classifier_safe_indexing(waste_classifier, model, base_model):
+    waste_classifier.model = model
+    waste_classifier.base_model = base_model
+    assert len(waste_classifier.model.layers) > 0
+    assert len(waste_classifier.base_model.layers) > 0
 
-def test_get_metrics_invalid_input():
-    with pytest.raises(ValueError):
-        WasteClassifier().get_metrics('invalid_input')
+def test_waste_classifier_error_handling(waste_classifier):
+    with pytest.raises(KeyError):
+        waste_classifier.fit_model(None, None)
+
+def test_waste_classifier_predict(waste_classifier, predictions):
+    waste_classifier.predict(predictions)
+    assert isinstance(waste_classifier.predictions, np.ndarray)
+
+def test_waste_classifier_get_predictions(waste_classifier, predictions):
+    waste_classifier.predictions = predictions
+    assert np.array_equal(waste_classifier.get_predictions(), predictions)
+
+def test_waste_classifier_get_history(waste_classifier, history):
+    waste_classifier.history = history
+    assert isinstance(waste_classifier.get_history(), dict)
+
+def test_waste_classifier_get_metrics(waste_classifier, metrics):
+    waste_classifier.metrics = metrics
+    assert waste_classifier.get_metrics() == metrics
+
+def test_waste_classifier_safe_indexing_history(waste_classifier, history):
+    waste_classifier.history = history
+    assert len(waste_classifier.history.history) > 0
+
+def test_waste_classifier_safe_indexing_predictions(waste_classifier, predictions):
+    waste_classifier.predictions = predictions
+    assert len(waste_classifier.predictions) > 0
+
+def test_waste_classifier_safe_indexing_class_labels(waste_classifier, class_labels):
+    waste_classifier.class_labels = class_labels
+    assert len(waste_classifier.class_labels) > 0
+
+def test_waste_classifier_safe_indexing_metrics(waste_classifier, metrics):
+    waste_classifier.metrics = metrics
+    assert len(waste_classifier.metrics) > 0

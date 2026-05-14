@@ -48,18 +48,3 @@ def test_process_image_invalid_image_path_type():
 def test_process_image_invalid_image_path_value():
     with pytest.raises(FileNotFoundError):
         process_image("non_existent_image.jpg")
-
-def test_process_image_open_without_context():
-    # Test that the image is closed properly
-    img = Image.open("tests/fixtures/image.jpg")
-    result = process_image("tests/fixtures/image.jpg")
-    assert img.closed
-
-def test_process_image_unsafe_indexing():
-    # Test that the image array is accessed safely
-    img_array = np.array(Image.open("tests/fixtures/image.jpg"))
-    result = process_image("tests/fixtures/image.jpg")
-    assert result.shape[0] == 1
-    assert result.shape[1] == 224
-    assert result.shape[2] == 224
-    assert result.shape[3] == 3

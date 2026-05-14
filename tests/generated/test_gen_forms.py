@@ -12,10 +12,7 @@ def client():
 
 @pytest.fixture
 def app():
-    app = create_app()
-    with app.app_context():
-        db.create_all()
-        yield app
+    return create_app()
 
 def test_registration_form(client):
     form = RegistrationForm()
@@ -75,3 +72,16 @@ def test_registration_form_valid_input(client):
     form.password.data = 'password'
     form.confirm_password.data = 'password'
     assert form.validate() is None
+
+@patch('your_app.db.session.add')
+@patch('your_app.db.session.commit')
+def test_registration_form_db_commit(mock_commit, mock_add, client):
+    form = RegistrationForm()
+    form.username.data = 'username'
+    form.email.data = 'valid_email@example.com'
+    form.password.data = 'password'
+    form.confirm_password.data = 'password'
+    form.validate()
+    form.submit.click()
+    mock_add.assert_called_once()
+    mock_commit.assert_called_once()
