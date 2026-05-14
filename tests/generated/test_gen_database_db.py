@@ -1,54 +1,72 @@
 import pytest
-from unittest.mock import MagicMock
-from database.db import init_db, get_db_session
+from unittest.mock import patch
+from database import db
 from flask import Flask
 from flask_sqlalchemy import SQLAlchemy
-import os
 
 @pytest.fixture
 def app():
+    """Create a Flask application instance"""
     app = Flask(__name__)
     app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///:memory:'
-    db = SQLAlchemy(app)
+    db.init_app(app)
     return app
 
 @pytest.fixture
 def client(app):
+    """Create a Flask test client"""
     return app.test_client()
 
 def test_get_db_session(app):
-    mock_create_engine = MagicMock()
-    mock_create_engine.return_value = 'mock_engine'
-    app.config['SQLALCHEMY_DATABASE_URI'] = 'mock_uri'
-    mock_session_factory = MagicMock()
-    mock_session_factory.return_value = 'mock_session_factory'
-    with pytest.raises(KeyError):
-        get_db_session(app)
-    mock_create_engine.assert_called_once_with(app.config['SQLALCHEMY_DATABASE_URI'])
-    mock_session_factory.assert_called_once_with(bind=mock_create_engine.return_value)
+    """Test that get_db_session returns a SQLAlchemy session"""
+    with app.app_context():
+        session = db.get_db_session(app)
+        assert isinstance(session, db.Model.sessionmaker.return_value)
 
 def test_get_db_session_invalid_uri(app):
-    app.config['SQLALCHEMY_DATABASE_URI'] = 'invalid_uri'
-    with pytest.raises(sqlalchemy.exc.ArgumentError):
-        get_db_session(app)
+    """Test that get_db_session raises an error with an invalid database URI"""
+    with app.app_context():
+        app.config['SQLALCHEMY_DATABASE_URI'] = 'invalid_uri'
+        with pytest.raises(KeyError):
+            db.get_db_session(app)
+
+def test_get_db_session_missing_uri(app):
+    """Test that get_db_session raises an error with a missing database URI"""
+    with app.app_context():
+        del app.config['SQLALCHEMY_DATABASE_URI']
+        with pytest.raises(KeyError):
+            db.get_db_session(app)
+
+def test_get_db_session_empty_uri(app):
+    """Test that get_db_session raises an error with an empty database URI"""
+    with app.app_context():
+        app.config['SQLALCHEMY_DATABASE_URI'] = ''
+        with pytest.raises(KeyError):
+            db.get_db_session(app)
 
 def test_init_db(app):
-    db = SQLAlchemy(app)
-    init_db(app)
-    assert db.engine.url.drivername == 'sqlite'
+    """Test that init_db initializes the database with the Flask application"""
+    with app.app_context():
+        db.init_db(app)
+        assert 'sqlalchemy' in app.extensions
 
-def test_get_db_session_unsafe_indexing(app):
-    mock_create_engine = MagicMock()
-    mock_create_engine.return_value = 'mock_engine'
-    app.config['SQLALCHEMY_DATABASE_URI'] = 'mock_uri'
-    mock_session_factory = MagicMock()
-    mock_session_factory.return_value = 'mock_session_factory'
-    with pytest.raises(KeyError):
-        get_db_session(app)
-    mock_create_engine.assert_called_once_with(app.config['SQLALCHEMY_DATABASE_URI'])
-    mock_session_factory.assert_called_once_with(bind=mock_create_engine.return_value)
+def test_init_db_invalid_uri(app):
+    """Test that init_db raises an error with an invalid database URI"""
+    with app.app_context():
+        app.config['SQLALCHEMY_DATABASE_URI'] = 'invalid_uri'
+        with pytest.raises(KeyError):
+            db.init_db(app)
 
-def test_get_db_session_unsafe_indexing_invalid_uri(app):
-    app.config['SQLALCHEMY_DATABASE_URI'] = 'invalid_uri'
-    with pytest.raises(sqlalchemy.exc.ArgumentError):
-        get_db_session(app)
+def test_init_db_missing_uri(app):
+    """Test that init_db raises an error with a missing database URI"""
+    with app.app_context():
+        del app.config['SQLALCHEMY_DATABASE_URI']
+        with pytest.raises(KeyError):
+            db.init_db(app)
+
+def test_init_db_empty_uri(app):
+    """Test that init_db raises an error with an empty database URI"""
+    with app.app_context():
+        app.config['SQLALCHEMY_DATABASE_URI'] = ''
+        with pytest.raises(KeyError):
+            db.init_db(app)
