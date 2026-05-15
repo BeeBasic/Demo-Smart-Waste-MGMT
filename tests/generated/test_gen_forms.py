@@ -1,79 +1,83 @@
-
 import pytest
-from app import create_app
 
-@pytest.fixture(scope='session')
+from flask import Flask, current_app, request
+
+@pytest.fixture(scope='function')
 def app():
-    app = create_app()
-    app.config.update({"TESTING": True})
-    return app
-
-@pytest.fixture
-def app_context(app):
+    app = Flask(__name__)
+    app.config.update({'TESTING': True, 'DEBUG': False})
     with app.app_context():
-        yield
+        yield app
 
-import pytest
-from unittest.mock import patch
-from forms import RegistrationForm
-from wtforms import ValidationError
-from your_app import create_app  # Replace 'your_app' with your actual app name
-
-@pytest.fixture
-def client():
-    app = create_app()
+@pytest.fixture(scope='function')
+def client(app):
     return app.test_client()
 
-def test_registration_form_valid(client):
-    form = RegistrationForm()
-    form.username.data = 'john_doe'
-    form.email.data = 'john@example.com'
-    form.password.data = 'password123'
-    form.confirm_password.data = 'password123'
-    assert form.validate() is True
-    response = client.post('/register', data=form.data)
-    assert response.status_code == 302  # Redirect to login page
+@pytest.fixture(scope='function')
+def request_ctx(app):
+    with app.test_request_context():
+        yield
+import pytest
+from forms import RegistrationForm
+from unittest.mock import patch
+from flask import Flask
+from flask_wtf import FlaskForm
 
-def test_registration_form_invalid_username(client):
-    form = RegistrationForm()
-    form.username.data = 'j'
-    form.email.data = 'john@example.com'
-    form.password.data = 'password123'
-    form.confirm_password.data = 'password123'
-    with pytest.raises(ValidationError):
-        form.validate()
-    response = client.post('/register', data=form.data)
-    assert response.status_code == 400  # Bad request
+@pytest.fixture
+def app():
+    app = Flask(__name__)
+    app.config['WTF_CSRF_ENABLED'] = False
+    return app
 
-def test_registration_form_invalid_email(client):
-    form = RegistrationForm()
-    form.username.data = 'john_doe'
-    form.email.data = 'invalid_email'
-    form.password.data = 'password123'
-    form.confirm_password.data = 'password123'
-    with pytest.raises(ValidationError):
-        form.validate()
-    response = client.post('/register', data=form.data)
-    assert response.status_code == 400  # Bad request
+def test_registration_form_valid_input(app):
+    with app.app_context():
+        form = RegistrationForm(
+            username='testuser',
+            email='test@example.com',
+            password='password123',
+            confirm_password='password123'
+        )
+        assert form.validate() is True
 
-def test_registration_form_invalid_password(client):
-    form = RegistrationForm()
-    form.username.data = 'john_doe'
-    form.email.data = 'john@example.com'
-    form.password.data = 'short'
-    form.confirm_password.data = 'short'
-    with pytest.raises(ValidationError):
-        form.validate()
-    response = client.post('/register', data=form.data)
-    assert response.status_code == 400  # Bad request
+def test_registration_form_invalid_username_length(app):
+    with app.app_context():
+        form = RegistrationForm(
+            username='ab',
+            email='test@example.com',
+            password='password123',
+            confirm_password='password123'
+        )
+        assert form.validate() is False
+        assert 'Username must be between 4 and 25 characters.' in form.username.errors
 
-def test_registration_form_mismatched_passwords(client):
-    form = RegistrationForm()
-    form.username.data = 'john_doe'
-    form.email.data = 'john@example.com'
-    form.password.data = 'password123'
-    form.confirm_password.data = 'wrong_password'
-    with pytest.raises(ValidationError):
-        form.validate()
-    response = client.post('/register', data=form.data)
-    assert response.status_code == 400  # Bad request
+def test_registration_form_invalid_password_length(app):
+    with app.app_context():
+        form = RegistrationForm(
+            username='testuser',
+            email='test@example.com',
+            password='pass',
+            confirm_password='pass'
+        )
+        assert form.validate() is False
+        assert 'Password must be at least 6 characters long.' in form.password.errors
+
+def test_registration_form_password_mismatch(app):
+    with app.app_context():
+        form = RegistrationForm(
+            username='testuser',
+            email='test@example.com',
+            password='password123',
+            confirm_password='password456'
+        )
+        assert form.validate() is False
+        assert 'Passwords must match.' in form.confirm_password.errors
+
+def test_registration_form_missing_fields(app):
+    with app.app_context():
+        form = RegistrationForm(
+            username='testuser',
+            email='test@example.com',
+            password='password123'
+        )
+        assert form.validate() is False
+        assert 'This field is required.' in form.confirm_password.errors

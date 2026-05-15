@@ -1,4 +1,5 @@
 import pytest
+import pytest
 from unittest.mock import patch, MagicMock
 from train_model import train_waste_classifier, plot_training_history, plot_confusion_matrix, generate_classification_report
 import numpy as np
@@ -16,27 +17,29 @@ def mock_history():
     }
     return history
 
-def test_train_waste_classifier(tmp_path):
-    data_dir = tmp_path / 'data'
-    model_save_path = tmp_path / 'model.h5'
-    model, history = train_waste_classifier(str(data_dir), str(model_save_path))
+def test_train_waste_classifier():
+    data_dir = 'path/to/data'
+    model_save_path = 'path/to/model'
+    epochs = 10
+    batch_size = 8
+    model, history = train_waste_classifier(data_dir, model_save_path, epochs, batch_size)
     assert isinstance(model, Sequential)
-    assert isinstance(history, object)
+    assert isinstance(history, dict)
 
 def test_plot_training_history(mock_history):
+    plot_training_history(mock_history)
+    # Check if the plot function was called
+    mock_history.assert_called_once()
+
+def test_plot_confusion_matrix():
+    classifier = Sequential([Dense(10)])
+    validation_generator = np.random.rand(10, 10)
     with patch('matplotlib.pyplot.show') as mock_show:
-        plot_training_history(mock_history)
+        plot_confusion_matrix(classifier, validation_generator)
         mock_show.assert_called_once()
 
-def test_plot_confusion_matrix(mock_history):
-    with patch('sklearn.metrics.confusion_matrix') as mock_confusion_matrix:
-        mock_confusion_matrix.return_value = np.array([[1, 0], [0, 1]])
-        with patch('matplotlib.pyplot.show') as mock_show:
-            plot_confusion_matrix(MagicMock(), MagicMock())
-            mock_show.assert_called_once()
-
-def test_generate_classification_report(mock_history):
-    with patch('sklearn.metrics.classification_report') as mock_classification_report:
-        mock_classification_report.return_value = 'classification report'
-        report = generate_classification_report(MagicMock(), MagicMock())
-        assert report == 'classification report'
+def test_generate_classification_report():
+    classifier = Sequential([Dense(10)])
+    validation_generator = np.random.rand(10, 10)
+    report = generate_classification_report(classifier, validation_generator)
+    assert isinstance(report, str)

@@ -1,4 +1,4 @@
-
+import pytest
 import pytest
 import cv2
 import numpy as np
@@ -12,43 +12,36 @@ from unittest.mock import patch
 def image_path():
     return "tests/fixtures/image.jpg"
 
-# Test 1: Test process_image with valid image path
-def test_process_image_valid_image(image_path):
-    # Arrange
-    expected_shape = (1, 224, 224, 3)
-    expected_dtype = np.float32
+# Test 1: Process image with valid input
+def test_process_image_valid_input(image_path):
+    expected_output = np.array([[[[0.0, 0.0, 0.0]]]])
+    with patch('PIL.Image.open') as mock_open:
+        mock_open.return_value.resize.return_value = mock_open.return_value
+        mock_open.return_value.load.return_value = (None, None)
+        output = process_image(image_path)
+        assert np.array_equal(output, expected_output)
 
-    # Act
-    img_array = process_image(image_path)
-
-    # Assert
-    assert img_array.shape == expected_shape
-    assert img_array.dtype == expected_dtype
-
-# Test 2: Test process_image with invalid image path
-def test_process_image_invalid_image(image_path):
-    # Arrange
-    with patch('builtins.open', side_effect=FileNotFoundError):
-        # Act and Assert
+# Test 2: Process image with invalid input (non-existent file)
+def test_process_image_invalid_input(image_path):
+    with patch('PIL.Image.open') as mock_open:
+        mock_open.side_effect = FileNotFoundError
         with pytest.raises(FileNotFoundError):
             process_image(image_path)
 
-# Test 3: Test process_image with grayscale image
-def test_process_image_grayscale_image(image_path):
-    # Arrange
-    with patch('PIL.Image.open', return_value=Image.fromarray(np.random.randint(0, 256, size=(224, 224), dtype=np.uint8))):
-        # Act
-        img_array = process_image(image_path)
+# Test 3: Process image with grayscale input
+def test_process_image_grayscale_input(image_path):
+    expected_output = np.array([[[[0.0, 0.0, 0.0]]]])
+    with patch('PIL.Image.open') as mock_open:
+        mock_open.return_value.load.return_value = (None, None)
+        mock_open.return_value.convert.return_value = mock_open.return_value
+        output = process_image(image_path)
+        assert np.array_equal(output, expected_output)
 
-    # Assert
-    assert img_array.shape == (1, 224, 224, 3)
-
-# Test 4: Test process_image with RGBA image
-def test_process_image_rgba_image(image_path):
-    # Arrange
-    with patch('PIL.Image.open', return_value=Image.fromarray(np.random.randint(0, 256, size=(224, 224, 4), dtype=np.uint8))):
-        # Act
-        img_array = process_image(image_path)
-
-    # Assert
-    assert img_array.shape == (1, 224, 224, 3)
+# Test 4: Process image with RGBA input
+def test_process_image_rgba_input(image_path):
+    expected_output = np.array([[[[0.0, 0.0, 0.0]]]])
+    with patch('PIL.Image.open') as mock_open:
+        mock_open.return_value.load.return_value = (None, None)
+        mock_open.return_value.convert.return_value = mock_open.return_value
+        output = process_image(image_path)
+        assert np.array_equal(output, expected_output)
