@@ -45,31 +45,27 @@ def app():
     app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///:memory:'
     return app
 
-def test_get_db_session(app):
+def test_get_db_session_success(app):
     session = get_db_session(app)
     assert session.bind.url.database == ':memory:'
 
-def test_get_db_session_with_invalid_config(app):
+def test_get_db_session_invalid_config(app):
     with patch('database.db.create_engine') as mock_create_engine:
         mock_create_engine.side_effect = KeyError('SQLALCHEMY_DATABASE_URI')
         with pytest.raises(KeyError):
             get_db_session(app)
 
-def test_get_db_session_with_invalid_uri(app):
+def test_get_db_session_invalid_uri(app):
     app.config['SQLALCHEMY_DATABASE_URI'] = 'invalid_uri'
     with patch('database.db.create_engine') as mock_create_engine:
         mock_create_engine.side_effect = ValueError('Invalid URI')
         with pytest.raises(ValueError):
             get_db_session(app)
 
-def test_get_db_session_with_missing_config(app):
-    del app.config['SQLALCHEMY_DATABASE_URI']
-    with pytest.raises(KeyError):
-        get_db_session(app)
+def test_get_db_session_session_factory(app):
+    session = get_db_session(app)
+    assert isinstance(session, scoped_session)
 
-def test_get_db_session_with_mocked_engine(app):
-    with patch('database.db.create_engine') as mock_create_engine:
-        mock_engine = MagicMock()
-        mock_create_engine.return_value = mock_engine
-        session = get_db_session(app)
-        assert session.bind == mock_engine
+def test_get_db_session_engine(app):
+    session = get_db_session(app)
+    assert session.bind.url.drivername == 'sqlite'

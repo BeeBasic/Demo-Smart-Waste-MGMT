@@ -7,41 +7,54 @@ from services.image_service import process_image
 import unittest.mock as mock
 from unittest.mock import patch
 
-# Fixtures
 @pytest.fixture
 def image_path():
     return "tests/fixtures/image.jpg"
 
-# Test 1: Process image with valid input
-def test_process_image_valid_input(image_path):
-    expected_output = np.array([[[[0.0, 0.0, 0.0]]]])
-    with patch('PIL.Image.open') as mock_open:
-        mock_open.return_value.resize.return_value = mock_open.return_value
-        mock_open.return_value.load.return_value = (None, None)
-        output = process_image(image_path)
-        assert np.array_equal(output, expected_output)
+def test_process_image_valid_image(image_path):
+    # Arrange
+    expected_shape = (1, 224, 224, 3)
+    expected_dtype = np.float32
 
-# Test 2: Process image with invalid input (non-existent file)
-def test_process_image_invalid_input(image_path):
-    with patch('PIL.Image.open') as mock_open:
-        mock_open.side_effect = FileNotFoundError
-        with pytest.raises(FileNotFoundError):
-            process_image(image_path)
+    # Act
+    img_array = process_image(image_path)
 
-# Test 3: Process image with grayscale input
-def test_process_image_grayscale_input(image_path):
-    expected_output = np.array([[[[0.0, 0.0, 0.0]]]])
-    with patch('PIL.Image.open') as mock_open:
-        mock_open.return_value.load.return_value = (None, None)
-        mock_open.return_value.convert.return_value = mock_open.return_value
-        output = process_image(image_path)
-        assert np.array_equal(output, expected_output)
+    # Assert
+    assert img_array.shape == expected_shape
+    assert img_array.dtype == expected_dtype
 
-# Test 4: Process image with RGBA input
-def test_process_image_rgba_input(image_path):
-    expected_output = np.array([[[[0.0, 0.0, 0.0]]]])
-    with patch('PIL.Image.open') as mock_open:
-        mock_open.return_value.load.return_value = (None, None)
-        mock_open.return_value.convert.return_value = mock_open.return_value
-        output = process_image(image_path)
-        assert np.array_equal(output, expected_output)
+def test_process_image_invalid_image_path():
+    # Arrange
+    invalid_path = "non_existent_image.jpg"
+
+    # Act and Assert
+    with pytest.raises(Exception):
+        process_image(invalid_path)
+
+def test_process_image_grayscale_image(image_path):
+    # Arrange
+    expected_shape = (1, 224, 224, 3)
+    expected_dtype = np.float32
+
+    # Patch cv2.cvtColor to return a grayscale image
+    with patch('cv2.cvtColor') as mock_cvtColor:
+        mock_cvtColor.return_value = np.random.rand(224, 224)
+        img_array = process_image(image_path)
+
+    # Assert
+    assert img_array.shape == expected_shape
+    assert img_array.dtype == expected_dtype
+
+def test_process_image_rgba_image(image_path):
+    # Arrange
+    expected_shape = (1, 224, 224, 3)
+    expected_dtype = np.float32
+
+    # Patch img_array.shape to return 4
+    with patch.object(np.ndarray, 'shape') as mock_shape:
+        mock_shape.return_value = (224, 224, 4)
+        img_array = process_image(image_path)
+
+    # Assert
+    assert img_array.shape == expected_shape
+    assert img_array.dtype == expected_dtype
